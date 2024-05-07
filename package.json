@@ -1,0 +1,56 @@
+{
+  "name": "@wavecx/wavecx-react",
+  "version": "0.0.1",
+  "description": "WaveCX React library",
+  "homepage": "https://github.com/WaveCX/wavecx-react#readme",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/WaveCX/wavecx-react.git"
+  },
+  "bugs": {
+    "url": "https://github.com/WaveCX/wavecx-react/issues"
+  },
+  "engines": {
+    "node": ">=16",
+    "npm": ">=7"
+  },
+  "main": "dist/cjs/index.js",
+  "module": "dist/esm/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "rollup": "rollup -c",
+    "lint": "eslint \"src/**/*.{js,jsx,ts,tsx}\"",
+    "prettier": "prettier --write ./src"
+  },
+  "browserslist": [
+    "defaults"
+  ],
+  "peerDependencies": {
+    "react": "^16.0.0 || ^17.0.0 || ^18.0.0",
+    "react-dom": "^16.0.0 || ^17.0.0 || ^18.0.0"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^24.1.0",
+    "@rollup/plugin-node-resolve": "^15.0.2",
+    "@rollup/plugin-typescript": "^11.1.0",
+    "@types/react": "^18.2.6",
+    "@types/react-dom": "^18.2.4",
+    "@typescript-eslint/eslint-plugin": "^5.59.1",
+    "@typescript-eslint/parser": "^5.59.1",
+    "eslint": "^8.39.0",
+    "eslint-config-prettier": "^8.8.0",
+    "eslint-plugin-react": "^7.32.2",
+    "prettier": "^2.8.8",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "rollup": "^3.20.7",
+    "rollup-plugin-dts": "^5.3.0",
+    "rollup-plugin-postcss": "^4.0.2",
+    "tslib": "^2.5.0",
+    "typescript": "^5.0.4"
+  }
+}
