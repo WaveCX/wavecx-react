@@ -26,12 +26,11 @@ export const composeFireTargetedContentEventViaApi =
           userId: options.userId,
           userIdVerification: options.userIdVerification,
           triggerPoint: options.triggerPoint,
-          platform: 'mobile',
+          platform: 'desktop',
         }),
       }
     );
-    const result = await response.json();
-    return result;
+    return await response.json();
   };
 
 export const fireTargetedContentEventViaApi =
