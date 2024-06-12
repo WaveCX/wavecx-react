@@ -2,6 +2,7 @@ import {useEffect, useState} from 'react';
 
 import {useWaveCx} from '@wavecx/wavecx-react';
 
+import {createUserIdVerification} from './user-id-verification';
 import './app.css';
 
 type View = 'sign-in' | 'trigger-one' | 'trigger-two' | 'trigger-three';
@@ -23,6 +24,10 @@ export const App = () => {
       handleEvent({
         type: 'session-started',
         userId,
+        userIdVerification: createUserIdVerification(userId),
+        userAttributes: {
+          creditScore: 800,
+        },
       });
       setView('trigger-one');
     } else {
