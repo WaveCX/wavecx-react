@@ -11,6 +11,7 @@ export type FireTargetedContentEvent = (options: {
   organizationCode: string;
   userId: string;
   userIdVerification?: string;
+  userAttributes?: object;
 }) => Promise<{ content: TargetedContent[] }>;
 
 export const composeFireTargetedContentEventViaApi =
@@ -27,6 +28,9 @@ export const composeFireTargetedContentEventViaApi =
           userIdVerification: options.userIdVerification,
           triggerPoint: options.triggerPoint,
           platform: 'desktop',
+          userData: {
+            attributes: options.userAttributes,
+          },
         }),
       }
     );
