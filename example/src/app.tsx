@@ -13,7 +13,7 @@ const triggerCodeForView = (view: View) =>
   view === 'trigger-three' ? import.meta.env.VITE_TRIGGER_THREE ?? 'payments' : undefined;
 
 export const App = () => {
-  const {handleEvent} = useWaveCx();
+  const {handleEvent, hasUserTriggeredContent} = useWaveCx();
 
   const [view, setView] = useState<View>('sign-in');
   const [userId, setUserId] = useState<string | undefined>(undefined);
@@ -91,6 +91,15 @@ export const App = () => {
             <button onClick={() => setUserId(undefined)}>Sign Out</button>
           </li>
         </ul>
+
+        {hasUserTriggeredContent && (
+          <p>
+            User-triggered content available:
+            <button onClick={() => handleEvent({ type: 'user-triggered-content' })}>
+              Show Content
+            </button>
+          </p>
+        )}
       </>
     );
   }
