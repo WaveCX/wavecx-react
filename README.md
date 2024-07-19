@@ -35,7 +35,7 @@ const Main = () => {
   return (
     <button
       title={'Trigger Point'}
-      onPress={() => {
+      onClick={() => {
         handleEvent({
           type: 'trigger-point',
           triggerPoint: 'trigger-point-code',
@@ -97,6 +97,24 @@ that content can be attached to.
 When a trigger-point event is raised, WaveCX will check for and
 present any content set for that trigger point that is relevant
 for the current user.
+
+### User-Triggered Content
+The WaveCX context provides a boolean value `hasUserTriggeredContent`
+indicating if the current trigger point has user-triggered
+content available. To present this content, a `user-triggered-content`
+event should be fired:
+
+```tsx
+const { handleEvent, hasUserTriggeredContent } = useWaveCx();
+
+// in render
+{hasUserTriggeredContent && (
+  <Button
+    title={'User-Triggered Content'}
+    onClick={() => handleEvent({ type: 'user-triggered-content' })}
+  />
+)}
+```
 
 ### Session Ended Events
 If trigger points may still be reached in your application
