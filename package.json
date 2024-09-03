@@ -15,17 +15,22 @@
     "node": ">=16",
     "npm": ">=7"
   },
+  "source": "src/index",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
   "types": "dist/index.d.ts",
   "files": [
     "dist"
   ],
+  "workspaces": [
+    "example"
+  ],
   "scripts": {
     "rollup": "rollup -c",
     "lint": "eslint \"src/**/*.{js,jsx,ts,tsx}\"",
     "prettier": "prettier --write ./src",
-    "deploy-example": "gh-pages -d example/dist"
+    "deploy-example": "gh-pages -d example/dist",
+    "example": "npm --workspace=example run dev"
   },
   "browserslist": [
     "defaults"

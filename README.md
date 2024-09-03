@@ -159,3 +159,11 @@ type FireTargetedContentEvent = (options: {
 
 ## Example Application
 An example application is available at https://github.com/WaveCX/wavecx-react/tree/main/example
+
+### Running the Example Application
+- Clone this repository
+- In the root directory, run `npm install`
+- Copy file `./example/.env.local.example` to `./example/.env.local`
+- Update `./example/.env.local` with your organizations information
+- In the root directory, run `npm run example`
+  - Sign in with any User ID to view content
