@@ -9,7 +9,7 @@ export type FireTargetedContentEvent = (options: {
   type: 'session-started' | 'trigger-point';
   triggerPoint?: string;
   organizationCode: string;
-  userId: string;
+  userId?: string;
   userIdVerification?: string;
   userAttributes?: object;
 }) => Promise<{ content: TargetedContent[] }>;
