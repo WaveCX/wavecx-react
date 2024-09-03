@@ -1,5 +1,6 @@
 import {createContext, useMemo, useState, useCallback, useContext} from 'react';
 import type {ReactNode} from 'react';
+import {createPortal} from 'react-dom';
 
 import { composeFireTargetedContentEventViaApi } from './targeted-content';
 import type { FireTargetedContentEvent } from './targeted-content';
@@ -18,13 +19,17 @@ type WaveCxContext = {
   hasUserTriggeredContent: boolean;
 };
 
-const WaveCxContext = createContext<WaveCxContext | undefined>(undefined);
+const WaveCxContext = createContext<WaveCxContext>({
+  handleEvent: () => undefined,
+  hasUserTriggeredContent: false,
+});
 
 export const WaveCxProvider = (props: {
   organizationCode: string;
   children?: ReactNode;
   apiBaseUrl?: string;
   recordEvent?: FireTargetedContentEvent;
+  portalParent?: Element;
 }) => {
   const recordEvent = useMemo(
     () =>
@@ -149,20 +154,25 @@ export const WaveCxProvider = (props: {
         hasUserTriggeredContent: userTriggeredContentItems.length > 0,
       }}
     >
-      {activeContentItem && (
-        <div
-          className={styles.modalContainer}
-          onClick={(e) => {
-            if (e.currentTarget === e.target) {
-              setContentItems([]);
-              setIsUserTriggeredContentShown(false);
-            }
-          }}
-        >
-          <div className={styles.modal}>
-            <iframe src={activeContentItem.url} className={styles.webview} />
-          </div>
-        </div>
+      {createPortal(
+        <>
+          {activeContentItem && (
+            <div
+              className={styles.modalContainer}
+              onClick={(e) => {
+                if (e.currentTarget === e.target) {
+                  setContentItems([]);
+                  setIsUserTriggeredContentShown(false);
+                }
+              }}
+            >
+              <div className={styles.modal}>
+                <iframe src={activeContentItem.url} className={styles.webview} />
+              </div>
+            </div>
+          )}
+        </>,
+        props.portalParent ?? document.body,
       )}
 
       {props.children}

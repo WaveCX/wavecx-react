@@ -5,6 +5,9 @@
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
+    "paths": {
+      "@wavecx/wavecx-react": ["../src/index"],
+    },
 
     /* Bundler mode */
     "moduleResolution": "bundler",
