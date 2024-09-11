@@ -167,7 +167,11 @@ export const WaveCxProvider = (props: {
               }}
             >
               <div className={styles.modal}>
-                <iframe src={activeContentItem.url} className={styles.webview} />
+                <iframe
+                  title={'Featured Content'}
+                  src={activeContentItem.url}
+                  className={styles.webview}
+                />
               </div>
             </div>
           )}
