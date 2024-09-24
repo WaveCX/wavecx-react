@@ -167,6 +167,14 @@ export const WaveCxProvider = (props: {
               }}
             >
               <div className={styles.modal}>
+                <button
+                  className={styles.modalCloseButton}
+                  onClick={() => {
+                    setContentItems([]);
+                    setIsUserTriggeredContentShown(false);
+                  }}
+                  title={'Close'}
+                />
                 <iframe
                   title={'Featured Content'}
                   src={activeContentItem.url}

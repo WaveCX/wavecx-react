@@ -19,6 +19,38 @@
   overflow: hidden;
 }
 
+.modalCloseButton {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  border: none;
+  background: none;
+  outline: none;
+  cursor: pointer;
+  width: 20px;
+  height: 20px;
+  opacity: 0.3;
+  transition: opacity 0.3s;
+}
+.modalCloseButton:hover {
+  opacity: 1;
+}
+.modalCloseButton:before, .modalCloseButton:after {
+  content: ' ';
+  position: absolute;
+  top: 0;
+  height: 20px;
+  width: 2px;
+  border-radius: 2px;
+  background-color: #666;
+}
+.modalCloseButton:before {
+  transform: rotate(45deg);
+}
+.modalCloseButton:after {
+  transform: rotate(-45deg);
+}
+
 .webview {
   border: none;
   width: 100%;
