@@ -1,4 +1,4 @@
-import {createContext, type ReactNode, useCallback, useContext, useMemo, useRef, useState} from 'react';
+import {createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState} from 'react';
 import {createPortal} from 'react-dom';
 
 import {composeFireTargetedContentEventViaApi, FireTargetedContentEvent} from './targeted-content';
@@ -146,6 +146,23 @@ export const WaveCxProvider = (props: {
     },
     [props.organizationCode, recordEvent, user.current]
   );
+
+  const escapeCallback = useCallback((event: {key: string}) => {
+    if (
+      event.key === "Escape" &&
+      (contentItems.length > 0 || isUserTriggeredContentShown)
+    ) {
+      setContentItems([]);
+      setIsUserTriggeredContentShown(false);
+    }
+  }, [contentItems, isUserTriggeredContentShown]);
+
+  useEffect(() => {
+    document.addEventListener("keydown", escapeCallback, false);
+    return () => {
+      document.removeEventListener("keydown", escapeCallback, false);
+    };
+  }, [escapeCallback]);
 
   return (
     <WaveCxContext.Provider
