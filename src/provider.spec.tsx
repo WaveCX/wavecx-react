@@ -1,8 +1,14 @@
 import {useEffect} from 'react';
 import {describe, it, expect} from 'vitest';
-import {render, screen, waitFor} from '@testing-library/react';
+import {render, screen, waitFor, type waitForOptions} from '@testing-library/react';
 
 import {useWaveCx, WaveCxProvider} from './provider';
+
+const verifyNeverOccurs = async (negativeAssertionFn: () => unknown, options?: waitForOptions) => {
+  await expect(
+    waitFor(negativeAssertionFn, options),
+  ).rejects.toThrow();
+};
 
 describe(WaveCxProvider.name, () => {
   it('renders provided child elements', () => {
@@ -53,6 +59,44 @@ describe(WaveCxProvider.name, () => {
     await waitFor(() => {
       expect(screen.getByTitle('Featured Content')).toBeVisible();
     });
+  });
+
+  it('does not render pop-up content if disabled', async () => {
+    const Consumer = () => {
+      const {handleEvent} = useWaveCx();
+
+      useEffect(() => {
+        handleEvent({
+          type: 'session-started',
+          userId: 'test-id',
+        });
+        handleEvent({
+          type: 'trigger-point',
+          triggerPoint: 'trigger-point',
+        });
+      }, []);
+
+      return <></>;
+    };
+
+    render(
+      <WaveCxProvider
+        disablePopupContent={true}
+        organizationCode={'org'}
+        recordEvent={async () => ({
+          content: [{
+            type: 'featurette',
+            presentationType: 'popup',
+            triggerPoint: 'trigger-point',
+            viewUrl: 'https://mock.content.com/embed',
+          }],
+        })}
+      >
+        <Consumer/>
+      </WaveCxProvider>
+    );
+
+    await verifyNeverOccurs(() => expect(screen.getByTitle('Featured Content')).toBeVisible());
   });
 
   it('provides a user-triggered-content status flag', async () => {
