@@ -28,6 +28,7 @@ export const WaveCxProvider = (props: {
   apiBaseUrl?: string;
   recordEvent?: FireTargetedContentEvent;
   portalParent?: Element;
+  disablePopupContent?: boolean;
 }) => {
   const recordEvent = useMemo(
     () =>
@@ -88,33 +89,35 @@ export const WaveCxProvider = (props: {
           userAttributes: user.current.attributes,
           triggerPoint: event.triggerPoint,
         });
-        setContentItems(
-          targetedContentResult.content
-            .filter((item: any) => item.presentationType === 'popup')
-            .map((item: any) => ({
-              presentationStyle: item.presentationStyle,
-              url: item.viewUrl,
-              slides:
-                item.presentationStyle !== 'native'
-                  ? []
-                  : item.content
-                    .sort((a: any, b: any) =>
-                      a.sortIndex < b.sortIndex ? -1 : 1
-                    )
-                    .map((c: any) => ({
-                      content: c.hasBlockContent
-                        ? {
-                          type: 'blocks',
-                          blocks: c.smallAspectContentBlocks,
-                        }
-                        : {
-                          type: 'basic',
-                          bodyHtml: c.smallAspectFeatureBody,
-                          imageUrl: c.smallAspectPreviewImage?.url,
-                        },
-                    })),
-            }))
-        );
+        if (!props.disablePopupContent) {
+          setContentItems(
+            targetedContentResult.content
+              .filter((item: any) => item.presentationType === 'popup')
+              .map((item: any) => ({
+                presentationStyle: item.presentationStyle,
+                url: item.viewUrl,
+                slides:
+                  item.presentationStyle !== 'native'
+                    ? []
+                    : item.content
+                      .sort((a: any, b: any) =>
+                        a.sortIndex < b.sortIndex ? -1 : 1
+                      )
+                      .map((c: any) => ({
+                        content: c.hasBlockContent
+                          ? {
+                            type: 'blocks',
+                            blocks: c.smallAspectContentBlocks,
+                          }
+                          : {
+                            type: 'basic',
+                            bodyHtml: c.smallAspectFeatureBody,
+                            imageUrl: c.smallAspectPreviewImage?.url,
+                          },
+                      })),
+              }))
+          );
+        }
         setUserTriggeredContentItems(
           targetedContentResult.content
             .filter((item: any) => item.presentationType === 'button-triggered')
