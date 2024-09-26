@@ -21,20 +21,18 @@
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "target": "es5",
-    "types": ["jest"],
     "lib": ["es2017", "dom"],
     "forceConsistentCasingInFileNames": true,
     "outDir": "dist"
   },
-  "include": ["src", "setup-tests.ts"],
+  "include": ["src"],
   "exclude": [
     "**/dist",
-    "**/test.*",
+    "**/*.test.*",
+    "**/*.spec.*",
+    "**/*.stories.*",
     "node_modules",
     "**/node_modules",
-    "**/*.spec.ts",
     "**/__tests__",
-    "**/*.test.ts",
-    "**/*.stories.*"
   ]
 }
