@@ -147,4 +147,109 @@ describe(WaveCxProvider.name, () => {
       expect(screen.getByLabelText('Has user-triggered content')).toBeChecked();
     });
   });
+
+  it('invokes an optional callback when popup content is dismissed', async () => {
+    let wasCallbackInvoked = false;
+
+    const Consumer = () => {
+      const {handleEvent} = useWaveCx();
+
+      useEffect(() => {
+        handleEvent({
+          type: 'session-started',
+          userId: 'test-id',
+        });
+        handleEvent({
+          type: 'trigger-point',
+          triggerPoint: 'trigger-point',
+          onContentDismissed: () => {
+            wasCallbackInvoked = true;
+          }
+        });
+      }, []);
+
+      return <></>;
+    };
+
+    render(
+      <WaveCxProvider
+        organizationCode={'org'}
+        recordEvent={async () => ({
+          content: [{
+            type: 'featurette',
+            presentationType: 'popup',
+            triggerPoint: 'trigger-point',
+            viewUrl: 'https://mock.content.com/embed',
+          }],
+        })}
+      >
+        <Consumer/>
+      </WaveCxProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTitle('Featured Content')).toBeVisible();
+    });
+
+    screen.getByTitle('Close').click();
+    expect(wasCallbackInvoked).toEqual(true);
+  });
+
+  it('invokes an optional callback when user-triggered content is dismissed', async () => {
+    let wasCallbackInvoked = false;
+
+    const Consumer = () => {
+      const {handleEvent, hasUserTriggeredContent} = useWaveCx();
+
+      useEffect(() => {
+        handleEvent({
+          type: 'session-started',
+          userId: 'test-id',
+        });
+        handleEvent({
+          type: 'trigger-point',
+          triggerPoint: 'trigger-point',
+        });
+      }, []);
+
+      return !hasUserTriggeredContent ? <></> : (
+        <button
+          onClick={() => handleEvent({
+            type: 'user-triggered-content',
+            onContentDismissed: () => {
+              wasCallbackInvoked = true;
+            }
+          })}
+        >Show Content</button>
+      );
+    };
+
+    render(
+      <WaveCxProvider
+        organizationCode={'org'}
+        recordEvent={async () => ({
+          content: [{
+            type: 'featurette',
+            presentationType: 'button-triggered',
+            triggerPoint: 'trigger-point',
+            viewUrl: 'https://mock.content.com/embed',
+          }],
+        })}
+      >
+        <Consumer/>
+      </WaveCxProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Show Content')).toBeVisible();
+      screen.getByText('Show Content').click();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTitle('Featured Content')).toBeVisible();
+    });
+
+    screen.getByTitle('Close').click();
+    expect(wasCallbackInvoked).toEqual(true);
+  });
 });

@@ -8,8 +8,8 @@ export type EventHandler = (
   event:
     | { type: 'session-started'; userId: string; userIdVerification?: string; userAttributes?: object }
     | { type: 'session-ended' }
-    | { type: 'trigger-point'; triggerPoint: string }
-    | { type: 'user-triggered-content' }
+    | { type: 'trigger-point'; triggerPoint: string; onContentDismissed?: () => void }
+    | { type: 'user-triggered-content'; onContentDismissed?: () => void }
 ) => void;
 
 export interface WaveCxContextInterface {
@@ -43,6 +43,10 @@ export const WaveCxProvider = (props: {
     | { id: string; idVerification?: string; attributes?: object }
     | undefined
   >(undefined);
+  const onContentDismissedCallback = useRef<
+    | (() => void)
+    | undefined
+  >(undefined);
 
   const [contentItems, setContentItems] = useState<
     { url: string; presentationStyle: string }[]
@@ -61,6 +65,8 @@ export const WaveCxProvider = (props: {
 
   const handleEvent = useCallback<EventHandler>(
     async (event) => {
+      onContentDismissedCallback.current = undefined;
+
       if (event.type === 'session-started' && user.current?.id !== event.userId) {
         user.current = {
           id: event.userId,
@@ -72,10 +78,14 @@ export const WaveCxProvider = (props: {
         setContentItems([]);
         setUserTriggeredContentItems([]);
       } else if (event.type === 'user-triggered-content') {
-        setIsUserTriggeredContentShown(true);
+        if (userTriggeredContentItems.length > 0) {
+          setIsUserTriggeredContentShown(true);
+          onContentDismissedCallback.current = event.onContentDismissed;
+        }
       } else if (event.type === 'trigger-point') {
         setContentItems([]);
         setUserTriggeredContentItems([]);
+        onContentDismissedCallback.current = event.onContentDismissed;
 
         if (!user.current) {
           return;
@@ -147,18 +157,23 @@ export const WaveCxProvider = (props: {
         );
       }
     },
-    [props.organizationCode, recordEvent, user.current]
+    [props.organizationCode, recordEvent, user.current, userTriggeredContentItems]
   );
+
+  const dismissContent = useCallback(() => {
+    onContentDismissedCallback.current?.();
+    setContentItems([]);
+    setIsUserTriggeredContentShown(false);
+  }, [onContentDismissedCallback.current]);
 
   const escapeCallback = useCallback((event: {key: string}) => {
     if (
       event.key === "Escape" &&
       (contentItems.length > 0 || isUserTriggeredContentShown)
     ) {
-      setContentItems([]);
-      setIsUserTriggeredContentShown(false);
+      dismissContent();
     }
-  }, [contentItems, isUserTriggeredContentShown]);
+  }, [contentItems, isUserTriggeredContentShown, dismissContent]);
 
   useEffect(() => {
     document.addEventListener("keydown", escapeCallback, false);
@@ -181,18 +196,14 @@ export const WaveCxProvider = (props: {
               className={styles.modalContainer}
               onClick={(e) => {
                 if (e.currentTarget === e.target) {
-                  setContentItems([]);
-                  setIsUserTriggeredContentShown(false);
+                  dismissContent();
                 }
               }}
             >
               <div className={styles.modal}>
                 <button
                   className={styles.modalCloseButton}
-                  onClick={() => {
-                    setContentItems([]);
-                    setIsUserTriggeredContentShown(false);
-                  }}
+                  onClick={dismissContent}
                   title={'Close'}
                 />
                 <iframe

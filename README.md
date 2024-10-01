@@ -88,6 +88,9 @@ communicate with in order to retrieve ID verification hashes.
 handleEvent({
   type: 'trigger-point',
   triggerPoint: 'trigger-point-code',
+  onContentDismissed: () => {
+    // optional callback when content is closed by user
+  }
 });
 ```
 
@@ -111,7 +114,12 @@ const { handleEvent, hasUserTriggeredContent } = useWaveCx();
 {hasUserTriggeredContent && (
   <Button
     title={'User-Triggered Content'}
-    onClick={() => handleEvent({ type: 'user-triggered-content' })}
+    onClick={() => handleEvent({ 
+      type: 'user-triggered-content',
+      onContentDismissed: () => {
+        // optional callback when content is closed by user
+      }
+    })}
   />
 )}
 ```
