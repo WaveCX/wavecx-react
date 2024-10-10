@@ -1,22 +1,13 @@
-.modalContainer {
-  position: fixed;
-  z-index: 9999;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: rgba(0, 0, 0, 0.5);
-}
-
 .modal {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
   width: 90vw;
   height: 90vh;
   border-radius: 20px;
   overflow: hidden;
+  padding: 0;
+  border: none;
+}
+.modal::backdrop {
+  background-color: rgba(0, 0, 0, 0.5);
 }
 
 .modalCloseButton {
@@ -25,18 +16,18 @@
   right: 15px;
   border: none;
   background: none;
-  outline: none;
   cursor: pointer;
   width: 20px;
   height: 20px;
-  opacity: 0.3;
+  opacity: 0.8;
   transition: opacity 0.3s;
+  z-index: 2;
 }
-.modalCloseButton:hover {
+.modalCloseButton:hover, .modalCloseButton:focus {
   opacity: 1;
 }
 .modalCloseButton:before, .modalCloseButton:after {
-  content: ' ';
+  content: '';
   position: absolute;
   top: 0;
   height: 20px;
