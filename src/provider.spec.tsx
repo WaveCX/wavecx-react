@@ -1,5 +1,5 @@
 import {useEffect} from 'react';
-import {describe, it, expect} from 'vitest';
+import {describe, it, expect, beforeAll} from 'vitest';
 import {render, screen, waitFor, type waitForOptions} from '@testing-library/react';
 
 import {useWaveCx, WaveCxProvider} from './provider';
@@ -11,6 +11,26 @@ const verifyNeverOccurs = async (negativeAssertionFn: () => unknown, options?: w
 };
 
 describe(WaveCxProvider.name, () => {
+  beforeAll(() => {
+    HTMLDialogElement.prototype.show = function mock(
+      this: HTMLDialogElement
+    ) {
+      this.open = true;
+    };
+
+    HTMLDialogElement.prototype.showModal = function mock(
+      this: HTMLDialogElement
+    ) {
+      this.open = true;
+    };
+
+    HTMLDialogElement.prototype.close = function mock(
+      this: HTMLDialogElement
+    ) {
+      this.open = false;
+    };
+  });
+
   it('renders provided child elements', () => {
     render(
       <WaveCxProvider organizationCode={'org'}>
@@ -57,6 +77,7 @@ describe(WaveCxProvider.name, () => {
     );
 
     await waitFor(() => {
+      expect(screen.getByRole('dialog')).toBeVisible();
       expect(screen.getByTitle('Featured Content')).toBeVisible();
     });
   });
@@ -96,7 +117,10 @@ describe(WaveCxProvider.name, () => {
       </WaveCxProvider>
     );
 
-    await verifyNeverOccurs(() => expect(screen.getByTitle('Featured Content')).toBeVisible());
+    await verifyNeverOccurs(() => {
+      expect(screen.getByRole('dialog')).toBeVisible();
+      expect(screen.getByTitle('Featured Content')).toBeVisible();
+    });
   });
 
   it('provides a user-triggered-content status flag', async () => {
@@ -188,7 +212,7 @@ describe(WaveCxProvider.name, () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTitle('Featured Content')).toBeVisible();
+      expect(screen.getByRole('dialog')).toBeVisible();
     });
 
     screen.getByTitle('Close').click();
@@ -246,7 +270,7 @@ describe(WaveCxProvider.name, () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTitle('Featured Content')).toBeVisible();
+      expect(screen.getByRole('dialog')).toBeVisible();
     });
 
     screen.getByTitle('Close').click();

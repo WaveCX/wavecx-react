@@ -1,4 +1,4 @@
-import {createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState} from 'react';
+import {createContext, type ReactNode, useCallback, useContext, useMemo, useRef, useState} from 'react';
 import {createPortal} from 'react-dom';
 
 import {composeFireTargetedContentEventViaApi, FireTargetedContentEvent} from './targeted-content';
@@ -166,22 +166,6 @@ export const WaveCxProvider = (props: {
     setIsUserTriggeredContentShown(false);
   }, [onContentDismissedCallback.current]);
 
-  const escapeCallback = useCallback((event: {key: string}) => {
-    if (
-      event.key === "Escape" &&
-      (contentItems.length > 0 || isUserTriggeredContentShown)
-    ) {
-      dismissContent();
-    }
-  }, [contentItems, isUserTriggeredContentShown, dismissContent]);
-
-  useEffect(() => {
-    document.addEventListener("keydown", escapeCallback, false);
-    return () => {
-      document.removeEventListener("keydown", escapeCallback, false);
-    };
-  }, [escapeCallback]);
-
   return (
     <WaveCxContext.Provider
       value={{
@@ -192,27 +176,30 @@ export const WaveCxProvider = (props: {
       {createPortal(
         <>
           {activeContentItem && (
-            <div
-              className={styles.modalContainer}
+            <dialog
+              ref={(r) => {
+                r?.showModal();
+                r?.focus();
+              }}
+              className={styles.modal}
               onClick={(e) => {
                 if (e.currentTarget === e.target) {
                   dismissContent();
                 }
               }}
+              onClose={dismissContent}
             >
-              <div className={styles.modal}>
-                <button
-                  className={styles.modalCloseButton}
-                  onClick={dismissContent}
-                  title={'Close'}
-                />
-                <iframe
-                  title={'Featured Content'}
-                  src={activeContentItem.url}
-                  className={styles.webview}
-                />
-              </div>
-            </div>
+              <button
+                className={styles.modalCloseButton}
+                onClick={dismissContent}
+                title={'Close'}
+              />
+              <iframe
+                title={'Featured Content'}
+                src={activeContentItem.url}
+                className={styles.webview}
+              />
+            </dialog>
           )}
         </>,
         props.portalParent ?? document.body,
