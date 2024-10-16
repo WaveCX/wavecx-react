@@ -3,6 +3,17 @@ export type TargetedContent = {
   type: 'featurette';
   presentationType: 'popup' | 'button-triggered';
   viewUrl: string;
+  webModal?: {
+    opacity: number;
+    backdropFilterCss?: string;
+    shadowCss?: string;
+    borderCss?: string;
+    borderRadiusCss: string;
+    heightCss: string;
+    widthCss: string;
+    marginCss?: string;
+    closeButton: {style: 'x'} | {style: 'text'; label: string};
+  };
 };
 
 export type FireTargetedContentEvent = (options: {
@@ -16,7 +27,7 @@ export type FireTargetedContentEvent = (options: {
 
 export const composeFireTargetedContentEventViaApi =
   (dependencies: { apiBaseUrl: string }): FireTargetedContentEvent =>
-  async (options) => {
+  async (options): Promise<{ content: TargetedContent[] }> => {
     const response = await fetch(
       `${dependencies.apiBaseUrl}/${options.organizationCode}/targeted-content-events`,
       {
@@ -34,5 +45,5 @@ export const composeFireTargetedContentEventViaApi =
         }),
       }
     );
-    return await response.json();
+    return response.json();
   };

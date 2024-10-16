@@ -1,7 +1,7 @@
-import {createContext, type ReactNode, useCallback, useContext, useMemo, useRef, useState} from 'react';
+import {createContext, CSSProperties, type ReactNode, useCallback, useContext, useMemo, useRef, useState} from 'react';
 import {createPortal} from 'react-dom';
 
-import {composeFireTargetedContentEventViaApi, FireTargetedContentEvent} from './targeted-content';
+import {composeFireTargetedContentEventViaApi, type FireTargetedContentEvent, type TargetedContent} from './targeted-content';
 import styles from './wavecx.module.css';
 
 export type EventHandler = (
@@ -48,12 +48,8 @@ export const WaveCxProvider = (props: {
     | undefined
   >(undefined);
 
-  const [contentItems, setContentItems] = useState<
-    { url: string; presentationStyle: string }[]
-  >([]);
-  const [userTriggeredContentItems, setUserTriggeredContentItems] = useState<
-    { url: string; presentationStyle: string }[]
-  >([]);
+  const [contentItems, setContentItems] = useState<TargetedContent[]>([]);
+  const [userTriggeredContentItems, setUserTriggeredContentItems] = useState<TargetedContent[]>([]);
   const [isUserTriggeredContentShown, setIsUserTriggeredContentShown] = useState(false);
 
   const activeContentItem =
@@ -100,61 +96,9 @@ export const WaveCxProvider = (props: {
           triggerPoint: event.triggerPoint,
         });
         if (!props.disablePopupContent) {
-          setContentItems(
-            targetedContentResult.content
-              .filter((item: any) => item.presentationType === 'popup')
-              .map((item: any) => ({
-                presentationStyle: item.presentationStyle,
-                url: item.viewUrl,
-                slides:
-                  item.presentationStyle !== 'native'
-                    ? []
-                    : item.content
-                      .sort((a: any, b: any) =>
-                        a.sortIndex < b.sortIndex ? -1 : 1
-                      )
-                      .map((c: any) => ({
-                        content: c.hasBlockContent
-                          ? {
-                            type: 'blocks',
-                            blocks: c.smallAspectContentBlocks,
-                          }
-                          : {
-                            type: 'basic',
-                            bodyHtml: c.smallAspectFeatureBody,
-                            imageUrl: c.smallAspectPreviewImage?.url,
-                          },
-                      })),
-              }))
-          );
+          setContentItems(targetedContentResult.content.filter((item: any) => item.presentationType === 'popup'));
         }
-        setUserTriggeredContentItems(
-          targetedContentResult.content
-            .filter((item: any) => item.presentationType === 'button-triggered')
-            .map((item: any) => ({
-              presentationStyle: item.presentationStyle,
-              url: item.viewUrl,
-              slides:
-                item.presentationStyle !== 'native'
-                  ? []
-                  : item.content
-                    .sort((a: any, b: any) =>
-                      a.sortIndex < b.sortIndex ? -1 : 1
-                    )
-                    .map((c: any) => ({
-                      content: c.hasBlockContent
-                        ? {
-                          type: 'blocks',
-                          blocks: c.smallAspectContentBlocks,
-                        }
-                        : {
-                          type: 'basic',
-                          bodyHtml: c.smallAspectFeatureBody,
-                          imageUrl: c.smallAspectPreviewImage?.url,
-                        },
-                    })),
-            }))
-        );
+        setUserTriggeredContentItems(targetedContentResult.content.filter((item: any) => item.presentationType === 'button-triggered'));
       }
     },
     [props.organizationCode, recordEvent, user.current, userTriggeredContentItems]
@@ -177,6 +121,16 @@ export const WaveCxProvider = (props: {
         <>
           {activeContentItem && (
             <dialog
+              style={{
+                opacity: activeContentItem.webModal?.opacity,
+                boxShadow: activeContentItem?.webModal?.shadowCss,
+                border: activeContentItem?.webModal?.borderCss,
+                borderRadius: activeContentItem?.webModal?.borderRadiusCss,
+                '--backdrop-filter': activeContentItem.webModal?.backdropFilterCss,
+                height: activeContentItem.webModal?.heightCss,
+                width: activeContentItem.webModal?.widthCss,
+                margin: activeContentItem.webModal?.marginCss,
+              } as CSSProperties}
               ref={(r) => {
                 r?.showModal();
                 r?.focus();
@@ -190,13 +144,21 @@ export const WaveCxProvider = (props: {
               onClose={dismissContent}
             >
               <button
-                className={styles.modalCloseButton}
+                className={[
+                  styles.modalCloseButton,
+                  activeContentItem.webModal?.closeButton.style === 'text' ? styles.textButton : ''
+                ].join(' ')}
                 onClick={dismissContent}
                 title={'Close'}
-              />
+              >
+                {activeContentItem.webModal?.closeButton.style === 'text'
+                  ? activeContentItem.webModal.closeButton.label
+                  : ''
+                }
+              </button>
               <iframe
                 title={'Featured Content'}
-                src={activeContentItem.url}
+                src={activeContentItem.viewUrl}
                 className={styles.webview}
               />
             </dialog>

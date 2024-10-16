@@ -1,13 +1,27 @@
+@keyframes slideUp {
+  from {
+    transform: translateY(50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
 .modal {
+  animation: slideUp 0.2s ease-out;
   width: 90vw;
   height: 90vh;
   border-radius: 20px;
   overflow: hidden;
   padding: 0;
   border: none;
+  top: 0;
 }
 .modal::backdrop {
   background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: var(--backdrop-filter);
 }
 
 .modalCloseButton {
@@ -40,6 +54,13 @@
 }
 .modalCloseButton:after {
   transform: rotate(-45deg);
+}
+.modalCloseButton.textButton {
+  width: unset;
+}
+.modalCloseButton.textButton:before,
+.modalCloseButton.textButton:after {
+  display: none;
 }
 
 .webview {
