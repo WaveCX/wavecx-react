@@ -14,6 +14,11 @@ export type TargetedContent = {
     marginCss?: string;
     closeButton: {style: 'x'} | {style: 'text'; label: string};
   };
+  loading?: {
+    color: string;
+    size: string;
+    message?: string;
+  };
 };
 
 export type FireTargetedContentEvent = (options: {

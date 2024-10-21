@@ -70,3 +70,11 @@
   width: 100%;
   height: 100%;
 }
+
+.loadingView {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  align-items: center;
+  justify-content: center;
+}

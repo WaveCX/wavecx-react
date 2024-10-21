@@ -2,6 +2,7 @@ import {createContext, CSSProperties, type ReactNode, useCallback, useContext, u
 import {createPortal} from 'react-dom';
 
 import {composeFireTargetedContentEventViaApi, type FireTargetedContentEvent, type TargetedContent} from './targeted-content';
+import {BusyIndicator} from './busy-indicator';
 import styles from './wavecx.module.css';
 
 export type EventHandler = (
@@ -51,6 +52,7 @@ export const WaveCxProvider = (props: {
   const [contentItems, setContentItems] = useState<TargetedContent[]>([]);
   const [userTriggeredContentItems, setUserTriggeredContentItems] = useState<TargetedContent[]>([]);
   const [isUserTriggeredContentShown, setIsUserTriggeredContentShown] = useState(false);
+  const [isRemoteContentReady, setIsRemoteContentReady] = useState(false);
 
   const activeContentItem =
     contentItems.length > 0
@@ -108,6 +110,7 @@ export const WaveCxProvider = (props: {
     onContentDismissedCallback.current?.();
     setContentItems([]);
     setIsUserTriggeredContentShown(false);
+    setIsRemoteContentReady(false);
   }, [onContentDismissedCallback.current]);
 
   return (
@@ -156,10 +159,25 @@ export const WaveCxProvider = (props: {
                   : ''
                 }
               </button>
+
+              {!isRemoteContentReady && (
+                <div className={styles.loadingView}>
+                  <BusyIndicator
+                    color={activeContentItem.loading?.color}
+                    size={activeContentItem.loading?.size}
+                    message={activeContentItem.loading?.message ?? 'Loading featured content'}
+                  />
+                </div>
+              )}
+
               <iframe
                 title={'Featured Content'}
                 src={activeContentItem.viewUrl}
+                style={{
+                  display: isRemoteContentReady ? undefined : 'none',
+                }}
                 className={styles.webview}
+                onLoad={() => setIsRemoteContentReady(true)}
               />
             </dialog>
           )}
