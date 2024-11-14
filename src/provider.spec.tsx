@@ -81,6 +81,135 @@ describe(WaveCxProvider.name, () => {
     });
   });
 
+  it('dismisses popup content when a different trigger point is fired', async () => {
+    const Consumer = () => {
+      const {handleEvent} = useWaveCx();
+
+      useEffect(() => {
+        handleEvent({
+          type: 'session-started',
+          userId: 'test-id',
+        });
+      }, []);
+
+      return (
+        <>
+          <button
+            onClick={() => handleEvent({
+              type: 'trigger-point',
+              triggerPoint: 'trigger-point',
+            })}
+          >Trigger Point
+          </button>
+
+          <button
+            onClick={() => handleEvent({
+              type: 'trigger-point',
+              triggerPoint: 'other',
+            })}
+          >Other</button>
+        </>
+      );
+    };
+
+    render(
+      <WaveCxProvider
+        organizationCode={'org'}
+        recordEvent={async () => ({
+          content: [{
+            type: 'featurette',
+            presentationType: 'popup',
+            triggerPoint: 'trigger-point',
+            viewUrl: 'https://mock.content.com/embed',
+          }],
+        })}
+      >
+        <Consumer/>
+      </WaveCxProvider>
+    );
+
+    screen.getByText('Trigger Point').click();
+    await waitFor(() => {
+      expect(screen.getByRole('dialog')).toBeVisible();
+    });
+
+    screen.getByText('Other').click();
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+  });
+
+  it('renders a received piece of pop-up content only once per session', async () => {
+    const Consumer = () => {
+      const {handleEvent} = useWaveCx();
+
+      useEffect(() => {
+        handleEvent({
+          type: 'session-started',
+          userId: 'test-id',
+        });
+      }, []);
+
+      return (
+        <>
+          <button
+            onClick={() => handleEvent({
+              type: 'trigger-point',
+              triggerPoint: 'trigger-point',
+            })}
+          >Trigger Point
+          </button>
+
+          <button
+            onClick={() => handleEvent({
+              type: 'trigger-point',
+              triggerPoint: 'other',
+            })}
+          >Other</button>
+        </>
+      );
+    };
+
+    render(
+      <WaveCxProvider
+        organizationCode={'org'}
+        recordEvent={async () => ({
+          content: [
+            {
+              type: 'featurette',
+              presentationType: 'popup',
+              triggerPoint: 'trigger-point',
+              viewUrl: 'https://mock.content.com/embed',
+            },
+            {
+              type: 'featurette',
+              presentationType: 'popup',
+              triggerPoint: 'other',
+              viewUrl: 'https://mock.content.com/other-embed',
+            },
+          ],
+        })}
+      >
+        <Consumer/>
+      </WaveCxProvider>
+    );
+
+    screen.getByText('Trigger Point').click();
+    await waitFor(() => {
+      expect(screen.getByRole('dialog')).toBeVisible();
+    });
+
+    screen.getByText('Other').click();
+    await waitFor(() => {
+      expect(screen.getByRole('dialog')).toBeVisible();
+    });
+
+    screen.getByText('Trigger Point').click();
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+  });
+
   it('does not render pop-up content if disabled', async () => {
     const Consumer = () => {
       const {handleEvent} = useWaveCx();
