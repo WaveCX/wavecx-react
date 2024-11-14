@@ -91,6 +91,7 @@ export const App = () => {
               onClick={() => {
                 setUserId(undefined);
                 setUserIdInput('');
+                setView('sign-in');
                 handleEvent({type: 'session-ended'});
               }}
             >Sign Out</button>
