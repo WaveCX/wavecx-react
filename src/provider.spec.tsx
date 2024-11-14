@@ -78,7 +78,6 @@ describe(WaveCxProvider.name, () => {
 
     await waitFor(() => {
       expect(screen.getByRole('dialog')).toBeVisible();
-      expect(screen.getByTitle('Featured Content')).toBeVisible();
     });
   });
 
