@@ -1,17 +1,25 @@
-import {createContext, CSSProperties, type ReactNode, useCallback, useContext, useMemo, useRef, useState} from 'react';
+import {
+  createContext,
+  CSSProperties,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useRef,
+  useState
+} from 'react';
 import {createPortal} from 'react-dom';
 
 import {composeFireTargetedContentEventViaApi, type FireTargetedContentEvent, type TargetedContent} from './targeted-content';
 import {BusyIndicator} from './busy-indicator';
 import styles from './wavecx.module.css';
 
-export type EventHandler = (
-  event:
-    | { type: 'session-started'; userId: string; userIdVerification?: string; userAttributes?: object }
-    | { type: 'session-ended' }
-    | { type: 'trigger-point'; triggerPoint: string; onContentDismissed?: () => void }
-    | { type: 'user-triggered-content'; onContentDismissed?: () => void }
-) => void;
+export type Event =
+  | { type: 'session-started'; userId: string; userIdVerification?: string; userAttributes?: object }
+  | { type: 'session-ended' }
+  | { type: 'trigger-point'; triggerPoint: string; onContentDismissed?: () => void }
+  | { type: 'user-triggered-content'; onContentDismissed?: () => void };
+
+export type EventHandler = (event: Event) => void;
 
 export interface WaveCxContextInterface {
   handleEvent: EventHandler;
@@ -23,6 +31,10 @@ export const WaveCxContext = createContext<WaveCxContextInterface>({
   hasUserTriggeredContent: false,
 });
 
+let isContentLoading = false;
+let eventQueue: Event[] = [];
+let contentCache: TargetedContent[] = [];
+
 export const WaveCxProvider = (props: {
   organizationCode: string;
   children?: ReactNode;
@@ -31,13 +43,12 @@ export const WaveCxProvider = (props: {
   portalParent?: Element;
   disablePopupContent?: boolean;
 }) => {
-  const recordEvent = useMemo(
-    () =>
+  const recordEvent = useCallback(
       props.recordEvent ??
       composeFireTargetedContentEventViaApi({
         apiBaseUrl: props.apiBaseUrl ?? 'https://api.wavecx.com',
       }),
-    [props.recordEvent, props.apiBaseUrl]
+    [props.recordEvent, props.apiBaseUrl],
   );
 
   const user = useRef<
@@ -49,17 +60,15 @@ export const WaveCxProvider = (props: {
     | undefined
   >(undefined);
 
-  const [contentItems, setContentItems] = useState<TargetedContent[]>([]);
-  const [userTriggeredContentItems, setUserTriggeredContentItems] = useState<TargetedContent[]>([]);
+  const [activePopupContent, setActivePopupContent] = useState<TargetedContent | undefined>(undefined);
+  const [activeUserTriggeredContent, setActiveUserTriggeredContent] = useState<TargetedContent | undefined>(undefined);
   const [isUserTriggeredContentShown, setIsUserTriggeredContentShown] = useState(false);
   const [isRemoteContentReady, setIsRemoteContentReady] = useState(false);
 
-  const activeContentItem =
-    contentItems.length > 0
-      ? contentItems[0]
-      : isUserTriggeredContentShown && userTriggeredContentItems.length > 0
-        ? userTriggeredContentItems[0]
-        : undefined;
+  const presentedContent =
+    activePopupContent ?? (isUserTriggeredContentShown
+      ? activeUserTriggeredContent
+      : undefined);
 
   const handleEvent = useCallback<EventHandler>(
     async (event) => {
@@ -71,45 +80,58 @@ export const WaveCxProvider = (props: {
           idVerification: event.userIdVerification,
           attributes: event.userAttributes,
         };
+
+        isContentLoading = true;
+        try {
+          const targetedContentResult = await recordEvent({
+            type: 'session-started',
+            organizationCode: props.organizationCode,
+            userId: event.userId,
+            userIdVerification: event.userIdVerification,
+            userAttributes: event.userAttributes,
+          });
+          contentCache = targetedContentResult.content;
+        } catch {}
+        isContentLoading = false;
+        if (eventQueue.length > 0) {
+          eventQueue.forEach((e) => handleEvent(e));
+          eventQueue = [];
+        }
       } else if (event.type === 'session-ended') {
         user.current = undefined;
-        setContentItems([]);
-        setUserTriggeredContentItems([]);
+        setActivePopupContent(undefined);
+        setActiveUserTriggeredContent(undefined);
       } else if (event.type === 'user-triggered-content') {
-        if (userTriggeredContentItems.length > 0) {
-          setIsUserTriggeredContentShown(true);
-          onContentDismissedCallback.current = event.onContentDismissed;
-        }
-      } else if (event.type === 'trigger-point') {
-        setContentItems([]);
-        setUserTriggeredContentItems([]);
+        setIsUserTriggeredContentShown(true);
         onContentDismissedCallback.current = event.onContentDismissed;
-
-        if (!user.current) {
+      } else if (event.type === 'trigger-point') {
+        if (isContentLoading) {
+          eventQueue.push(event);
           return;
         }
 
-        const targetedContentResult = await recordEvent({
-          type: 'trigger-point',
-          organizationCode: props.organizationCode,
-          userId: user.current.id,
-          userIdVerification: user.current.idVerification,
-          userAttributes: user.current.attributes,
-          triggerPoint: event.triggerPoint,
-        });
-        if (!props.disablePopupContent) {
-          setContentItems(targetedContentResult.content.filter((item: any) => item.presentationType === 'popup'));
-        }
-        setUserTriggeredContentItems(targetedContentResult.content.filter((item: any) => item.presentationType === 'button-triggered'));
+        onContentDismissedCallback.current = event.onContentDismissed;
+        setActivePopupContent(contentCache.filter((c) =>
+          c.triggerPoint === event.triggerPoint
+          && c.presentationType === 'popup'
+        )[0]);
+        contentCache = contentCache.filter((c) =>
+          c.triggerPoint !== event.triggerPoint
+          || c.presentationType !== 'popup'
+        );
+        setActiveUserTriggeredContent(contentCache.filter((c) =>
+          c.triggerPoint === event.triggerPoint
+          && c.presentationType === 'button-triggered'
+        )[0]);
       }
     },
-    [props.organizationCode, recordEvent, user.current, userTriggeredContentItems]
+    [props.organizationCode, recordEvent],
   );
 
   const dismissContent = useCallback(() => {
     onContentDismissedCallback.current?.();
-    setContentItems([]);
     setIsUserTriggeredContentShown(false);
+    setActivePopupContent(undefined);
     setIsRemoteContentReady(false);
   }, [onContentDismissedCallback.current]);
 
@@ -117,22 +139,22 @@ export const WaveCxProvider = (props: {
     <WaveCxContext.Provider
       value={{
         handleEvent,
-        hasUserTriggeredContent: userTriggeredContentItems.length > 0,
+        hasUserTriggeredContent: activeUserTriggeredContent !== undefined,
       }}
     >
       {createPortal(
         <>
-          {activeContentItem && (
+          {presentedContent && (
             <dialog
               style={{
-                opacity: activeContentItem.webModal?.opacity,
-                boxShadow: activeContentItem?.webModal?.shadowCss,
-                border: activeContentItem?.webModal?.borderCss,
-                borderRadius: activeContentItem?.webModal?.borderRadiusCss,
-                '--backdrop-filter': activeContentItem.webModal?.backdropFilterCss,
-                height: activeContentItem.webModal?.heightCss,
-                width: activeContentItem.webModal?.widthCss,
-                margin: activeContentItem.webModal?.marginCss,
+                opacity: presentedContent.webModal?.opacity,
+                boxShadow: presentedContent?.webModal?.shadowCss,
+                border: presentedContent?.webModal?.borderCss,
+                borderRadius: presentedContent?.webModal?.borderRadiusCss,
+                '--backdrop-filter': presentedContent.webModal?.backdropFilterCss,
+                height: presentedContent.webModal?.heightCss,
+                width: presentedContent.webModal?.widthCss,
+                margin: presentedContent.webModal?.marginCss,
               } as CSSProperties}
               ref={(r) => {
                 r?.showModal();
@@ -149,13 +171,13 @@ export const WaveCxProvider = (props: {
               <button
                 className={[
                   styles.modalCloseButton,
-                  activeContentItem.webModal?.closeButton.style === 'text' ? styles.textButton : ''
+                  presentedContent.webModal?.closeButton.style === 'text' ? styles.textButton : ''
                 ].join(' ')}
                 onClick={dismissContent}
                 title={'Close'}
               >
-                {activeContentItem.webModal?.closeButton.style === 'text'
-                  ? activeContentItem.webModal.closeButton.label
+                {presentedContent.webModal?.closeButton.style === 'text'
+                  ? presentedContent.webModal.closeButton.label
                   : ''
                 }
               </button>
@@ -163,16 +185,16 @@ export const WaveCxProvider = (props: {
               {!isRemoteContentReady && (
                 <div className={styles.loadingView}>
                   <BusyIndicator
-                    color={activeContentItem.loading?.color}
-                    size={activeContentItem.loading?.size}
-                    message={activeContentItem.loading?.message ?? 'Loading featured content'}
+                    color={presentedContent.loading?.color}
+                    size={presentedContent.loading?.size}
+                    message={presentedContent.loading?.message ?? 'Loading featured content'}
                   />
                 </div>
               )}
 
               <iframe
                 title={'Featured Content'}
-                src={activeContentItem.viewUrl}
+                src={presentedContent.viewUrl}
                 style={{
                   display: isRemoteContentReady ? undefined : 'none',
                 }}
