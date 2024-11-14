@@ -30,17 +30,16 @@ export const App = () => {
         },
       });
       setView('trigger-one');
-    } else {
-      handleEvent({type: 'session-ended'});
-      setUserIdInput('');
     }
   }, [userId]);
 
   useEffect(() => {
-    handleEvent({
-      type: 'trigger-point',
-      triggerPoint: triggerCodeForView(view),
-    });
+    if (triggerCodeForView(view)) {
+      handleEvent({
+        type: 'trigger-point',
+        triggerPoint: triggerCodeForView(view),
+      });
+    }
   }, [view]);
 
   if (!userId) {
@@ -88,7 +87,13 @@ export const App = () => {
             </button>
           </li>
           <li>
-            <button onClick={() => setUserId(undefined)}>Sign Out</button>
+            <button
+              onClick={() => {
+                setUserId(undefined);
+                setUserIdInput('');
+                handleEvent({type: 'session-ended'});
+              }}
+            >Sign Out</button>
           </li>
         </ul>
 
