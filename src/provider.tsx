@@ -99,6 +99,7 @@ export const WaveCxProvider = (props: {
         }
       } else if (event.type === 'session-ended') {
         user.current = undefined;
+        contentCache = [];
         setActivePopupContent(undefined);
         setActiveUserTriggeredContent(undefined);
       } else if (event.type === 'user-triggered-content') {
