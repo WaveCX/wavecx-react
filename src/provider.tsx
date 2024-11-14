@@ -51,10 +51,6 @@ export const WaveCxProvider = (props: {
     [props.recordEvent, props.apiBaseUrl],
   );
 
-  const user = useRef<
-    | { id: string; idVerification?: string; attributes?: object }
-    | undefined
-  >(undefined);
   const onContentDismissedCallback = useRef<
     | (() => void)
     | undefined
@@ -74,13 +70,7 @@ export const WaveCxProvider = (props: {
     async (event) => {
       onContentDismissedCallback.current = undefined;
 
-      if (event.type === 'session-started' && user.current?.id !== event.userId) {
-        user.current = {
-          id: event.userId,
-          idVerification: event.userIdVerification,
-          attributes: event.userAttributes,
-        };
-
+      if (event.type === 'session-started') {
         isContentLoading = true;
         try {
           const targetedContentResult = await recordEvent({
@@ -98,7 +88,6 @@ export const WaveCxProvider = (props: {
           eventQueue = [];
         }
       } else if (event.type === 'session-ended') {
-        user.current = undefined;
         contentCache = [];
         setActivePopupContent(undefined);
         setActiveUserTriggeredContent(undefined);
