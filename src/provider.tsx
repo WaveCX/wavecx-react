@@ -1,11 +1,11 @@
 import {
   createContext,
-  CSSProperties,
-  type ReactNode,
   useCallback,
   useContext,
   useRef,
-  useState
+  useState,
+  type CSSProperties,
+  type ReactNode,
 } from 'react';
 import {createPortal} from 'react-dom';
 

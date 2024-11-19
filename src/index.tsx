@@ -1,8 +1,8 @@
 export {
-  type WaveCxContextInterface,
   WaveCxContext,
   WaveCxProvider,
   useWaveCx,
+  type WaveCxContextInterface,
   type EventHandler,
 } from './provider';
 
