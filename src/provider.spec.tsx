@@ -255,7 +255,6 @@ describe(WaveCxProvider.name, () => {
 
     await verifyNeverOccurs(() => {
       expect(screen.getByRole('dialog')).toBeVisible();
-      expect(screen.getByTitle('Featured Content')).toBeVisible();
     });
   });
 
