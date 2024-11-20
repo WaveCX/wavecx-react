@@ -130,14 +130,17 @@ export const WaveCxProvider = (props: {
             return;
           }
 
-          setActivePopupContent(contentCache.filter((c) =>
-            c.triggerPoint === event.triggerPoint
-            && c.presentationType === 'popup'
-          )[0]);
           contentCache = contentCache.filter((c) =>
             c.triggerPoint !== event.triggerPoint
             || c.presentationType !== 'popup'
           );
+
+          if (!props.disablePopupContent) {
+            setActivePopupContent(contentCache.filter((c) =>
+              c.triggerPoint === event.triggerPoint
+              && c.presentationType === 'popup'
+            )[0]);
+          }
           setActiveUserTriggeredContent(contentCache.filter((c) =>
             c.triggerPoint === event.triggerPoint
             && c.presentationType === 'button-triggered'
@@ -162,13 +165,14 @@ export const WaveCxProvider = (props: {
               triggerPoint: event.triggerPoint,
               content: targetedContentResult.content,
             })
-            setActivePopupContent(targetedContentResult.content.filter((c) =>
-              c.presentationType === 'popup'
-            )[0]);
+            if (!props.disablePopupContent) {
+              setActivePopupContent(targetedContentResult.content.filter((c) =>
+                c.presentationType === 'popup'
+              )[0]);
+            }
             setActiveUserTriggeredContent(targetedContentResult.content.filter((c) =>
               c.presentationType === 'button-triggered'
             )[0]);
-            contentCache = targetedContentResult.content;
           } catch {}
         }
       }
