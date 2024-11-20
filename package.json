@@ -1,6 +1,6 @@
 {
   "name": "@wavecx/wavecx-react",
-  "version": "1.5.1",
+  "version": "1.6.0",
   "description": "WaveCX React library",
   "homepage": "https://github.com/WaveCX/wavecx-react#readme",
   "type": "module",
@@ -27,6 +27,7 @@
   ],
   "scripts": {
     "build": "rimraf dist && tsc && rollup -c",
+    "typecheck": "tsc",
     "test": "vitest",
     "lint": "eslint \"src/**/*.{js,jsx,ts,tsx}\"",
     "prettier": "prettier --write ./src",
