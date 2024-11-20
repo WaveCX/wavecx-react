@@ -9,6 +9,8 @@ export {
 } from './provider';
 
 export {
+  fireTargetedContentEventViaApi,
+  composeFireTargetedContentEventViaApi,
   type TargetedContent,
   type FireTargetedContentEvent,
 } from './targeted-content';

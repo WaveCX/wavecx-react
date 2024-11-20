@@ -52,3 +52,5 @@ export const composeFireTargetedContentEventViaApi =
     );
     return response.json();
   };
+
+export const fireTargetedContentEventViaApi = composeFireTargetedContentEventViaApi({ apiBaseUrl: 'https://api.wavecx.com' });
