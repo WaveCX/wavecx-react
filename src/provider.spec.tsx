@@ -1,6 +1,7 @@
 import {useEffect} from 'react';
 import {describe, it, expect, beforeAll} from 'vitest';
 import {render, screen, waitFor, type waitForOptions} from '@testing-library/react';
+import '@testing-library/jest-dom/vitest'
 
 import {useWaveCx, WaveCxProvider} from './provider';
 
