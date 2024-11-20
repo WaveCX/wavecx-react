@@ -11,25 +11,32 @@ const verifyNeverOccurs = async (negativeAssertionFn: () => unknown, options?: w
   ).rejects.toThrow();
 };
 
+const setupMockHtmlDialogElement = () => {
+  // jest-dom does not fully support dialog elements,
+  // so we need to mock these methods for testing dialogs.
+
+  HTMLDialogElement.prototype.show = function mock(
+    this: HTMLDialogElement
+  ) {
+    this.open = true;
+  };
+
+  HTMLDialogElement.prototype.showModal = function mock(
+    this: HTMLDialogElement
+  ) {
+    this.open = true;
+  };
+
+  HTMLDialogElement.prototype.close = function mock(
+    this: HTMLDialogElement
+  ) {
+    this.open = false;
+  };
+};
+
 describe(WaveCxProvider.name, () => {
   beforeAll(() => {
-    HTMLDialogElement.prototype.show = function mock(
-      this: HTMLDialogElement
-    ) {
-      this.open = true;
-    };
-
-    HTMLDialogElement.prototype.showModal = function mock(
-      this: HTMLDialogElement
-    ) {
-      this.open = true;
-    };
-
-    HTMLDialogElement.prototype.close = function mock(
-      this: HTMLDialogElement
-    ) {
-      this.open = false;
-    };
+    setupMockHtmlDialogElement();
   });
 
   it('renders provided child elements', () => {
