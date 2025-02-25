@@ -1,15 +1,12 @@
 import {type CSSProperties} from 'react';
 
-import styles from './busy-indicator.module.css';
-
 export const BusyIndicator = (props: {
   color?: string;
   size?: string;
   message?: string;
-  className?: string;
 }) => (
   <span
-    className={[styles.root, props.className].join(' ')}
+    className={'__wcx_busy'}
     aria-label={props.message}
   >
     <span
@@ -17,7 +14,7 @@ export const BusyIndicator = (props: {
         '--size': props.size,
         '--color': props.color,
       } as CSSProperties}
-      className={styles.bar}
+      className={'__wcx_bar'}
     />
   </span>
 );

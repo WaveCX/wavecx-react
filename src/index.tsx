@@ -14,3 +14,5 @@ export {
   type TargetedContent,
   type FireTargetedContentEvent,
 } from './targeted-content';
+
+import './styles.css';
