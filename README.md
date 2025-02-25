@@ -5,12 +5,20 @@ Add WaveCX to your React application.
 `npm i @wavecx/wavecx-react`
 
 ## Quickstart
+1. Import the WaveCX provider with `import { WaveCxProvider } from '@wavecx/wavecx-react';`
+2. Wrap your application or component subtree where WaveCX is used in `WaveCxProvider` and provide your organization code.
+3. Import WaveCX styles with `import '@wavecx/wavecx-react/styles.css';`.
+4. In your inner components `import { useWaveCx } from '@wavecx/wavecx-react';`
+5. Use `const {handleEvent} = useWaveCx()` to access the WaveCX context and raise events.
+
+### Example
 ```tsx
 import * as React from 'react';
 import { useEffect } from 'react';
 import { HmacSHA256 } from 'crypto-js';
 
 import { WaveCxProvider, useWaveCx } from '@wavecx/wavecx-react';
+import '@wavecx/wavecx-react/styles.css';
 
 export const App = () => (
   <WaveCxProvider organizationCode={'your-org-code'}>
