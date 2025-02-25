@@ -1,0 +1,112 @@
+@keyframes __wcx_fadeIn {
+  0% {opacity: 0}
+  100% {opacity: 1}
+}
+
+@keyframes __wcx_spin {
+  0% {transform: rotate(0deg) scale(1)}
+  50% {transform: rotate(180deg) scale(0.8)}
+  100% {transform: rotate(360deg) scale(1)}
+}
+
+.__wcx_busy {
+  display: inline-block;
+  animation: __wcx_fadeIn 2s ease-out;
+}
+
+.__wcx_busy .__wcx_bar {
+  width: var(--size, 30px);
+  height: var(--size, 30px);
+  border-radius: 100%;
+  border-width: 2px;
+  border-style: solid;
+  border-top-color: var(--color, #aaa);
+  border-bottom-color: transparent;
+  border-right-color: var(--color, #aaa);
+  border-left-color: var(--color, #aaa);
+  border-image: initial;
+  display: inline-block;
+  animation: 0.75s linear 0s infinite normal both running __wcx_spin;
+}
+
+@keyframes __wcx_slideUp {
+  from {
+    transform: translateY(50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.__wcx_modal {
+  animation: __wcx_slideUp 0.2s ease-out;
+  width: 90vw;
+  height: 90vh;
+  border-radius: 20px;
+  overflow: hidden;
+  padding: 0;
+  border: none;
+  top: 0;
+  max-width: unset;
+  max-height: unset;
+  background: white;
+}
+.__wcx_modal::backdrop {
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: var(--backdrop-filter);
+}
+
+.__wcx_modalCloseButton {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  width: 20px;
+  height: 20px;
+  opacity: 0.8;
+  transition: opacity 0.3s;
+  z-index: 2;
+}
+.__wcx_modalCloseButton:hover, .__wcx_modalCloseButton:focus {
+  opacity: 1;
+}
+.__wcx_modalCloseButton:before, .__wcx_modalCloseButton:after {
+  content: '';
+  position: absolute;
+  top: 0;
+  height: 20px;
+  width: 2px;
+  border-radius: 2px;
+  background-color: #666;
+}
+.__wcx_modalCloseButton:before {
+  transform: rotate(45deg);
+}
+.__wcx_modalCloseButton:after {
+  transform: rotate(-45deg);
+}
+.__wcx_modalCloseButton.__wcx_textButton {
+  width: unset;
+}
+.__wcx_modalCloseButton.__wcx_textButton:before,
+.__wcx_modalCloseButton.__wcx_textButton:after {
+  display: none;
+}
+
+.__wcx_webview {
+  border: none;
+  width: 100%;
+  height: 100%;
+}
+
+.__wcx_loadingView {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  align-items: center;
+  justify-content: center;
+}

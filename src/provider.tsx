@@ -11,7 +11,6 @@ import {createPortal} from 'react-dom';
 
 import {composeFireTargetedContentEventViaApi, type FireTargetedContentEvent, type TargetedContent} from './targeted-content';
 import {BusyIndicator} from './busy-indicator';
-import styles from './wavecx.module.css';
 
 export type Event =
   | { type: 'session-started'; userId: string; userIdVerification?: string; userAttributes?: object }
@@ -212,7 +211,7 @@ export const WaveCxProvider = (props: {
                 r?.showModal();
                 r?.focus();
               }}
-              className={styles.modal}
+              className={'__wcx_modal'}
               onClick={(e) => {
                 if (e.currentTarget === e.target) {
                   dismissContent();
@@ -222,8 +221,8 @@ export const WaveCxProvider = (props: {
             >
               <button
                 className={[
-                  styles.modalCloseButton,
-                  presentedContent.webModal?.closeButton.style === 'text' ? styles.textButton : ''
+                  '__wcx_modalCloseButton',
+                  presentedContent.webModal?.closeButton.style === 'text' ? '__wcx_textButton' : ''
                 ].join(' ')}
                 onClick={dismissContent}
                 title={'Close'}
@@ -235,7 +234,7 @@ export const WaveCxProvider = (props: {
               </button>
 
               {!isRemoteContentReady && (
-                <div className={styles.loadingView}>
+                <div className={'__wcx_loadingView'}>
                   <BusyIndicator
                     color={presentedContent.loading?.color}
                     size={presentedContent.loading?.size}
@@ -250,7 +249,7 @@ export const WaveCxProvider = (props: {
                 style={{
                   display: isRemoteContentReady ? undefined : 'none',
                 }}
-                className={styles.webview}
+                className={'__wcx_webview'}
                 onLoad={() => setIsRemoteContentReady(true)}
               />
             </dialog>

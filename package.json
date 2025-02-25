@@ -1,9 +1,8 @@
 {
   "name": "@wavecx/wavecx-react",
-  "version": "1.6.1",
+  "version": "1.6.2",
   "description": "WaveCX React library",
   "homepage": "https://github.com/WaveCX/wavecx-react#readme",
-  "type": "module",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/WaveCX/wavecx-react.git"
@@ -15,12 +14,26 @@
     "node": ">=16",
     "npm": ">=7"
   },
+  "type": "module",
   "source": "src/index",
-  "main": "dist/cjs/index.js",
-  "module": "dist/esm/index.js",
+  "main": "dist/index.cjs",
+  "module": "dist/index.mjs",
+  "style": "dist/styles.css",
   "types": "dist/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "styles.css"
+  ],
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs",
+      "types": "./dist/index.d.ts"
+    },
+    "./styles.css": "./dist/styles.css"
+  },
+  "sideEffects": [
+    "**/*.css"
   ],
   "workspaces": [
     "example"
