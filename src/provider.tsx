@@ -129,16 +129,16 @@ export const WaveCxProvider = (props: {
             return;
           }
 
-          contentCache = contentCache.filter((c) =>
-            c.triggerPoint !== event.triggerPoint
-            || c.presentationType !== 'popup'
-          );
-
           if (!props.disablePopupContent) {
             setActivePopupContent(contentCache.filter((c) =>
               c.triggerPoint === event.triggerPoint
               && c.presentationType === 'popup'
             )[0]);
+
+            contentCache = contentCache.filter((c) =>
+              c.triggerPoint !== event.triggerPoint
+              || c.presentationType !== 'popup'
+            );
           }
           setActiveUserTriggeredContent(contentCache.filter((c) =>
             c.triggerPoint === event.triggerPoint
