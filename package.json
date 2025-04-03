@@ -1,6 +1,6 @@
 {
   "name": "@wavecx/wavecx-react",
-  "version": "1.6.3",
+  "version": "1.6.4",
   "description": "WaveCX React library",
   "homepage": "https://github.com/WaveCX/wavecx-react#readme",
   "repository": {
@@ -11,8 +11,8 @@
     "url": "https://github.com/WaveCX/wavecx-react/issues"
   },
   "engines": {
-    "node": ">=16",
-    "npm": ">=7"
+    "node": ">=12",
+    "npm": ">=6"
   },
   "type": "module",
   "source": "src/index",
