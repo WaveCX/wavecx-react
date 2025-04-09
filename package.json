@@ -17,7 +17,6 @@
   "type": "module",
   "source": "src/index",
   "main": "dist/index.cjs",
-  "module": "dist/index.mjs",
   "style": "dist/styles.css",
   "types": "dist/index.d.ts",
   "files": [
