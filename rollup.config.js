@@ -15,7 +15,7 @@ export default [
         sourcemap: true,
       },
       {
-        file: packageInfo.module,
+        file: packageInfo.exports['.'].import,
         format: 'esm',
         sourcemap: true,
       },
