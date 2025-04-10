@@ -1,11 +1,11 @@
-import nodeResolve from '@rollup/plugin-node-resolve';
-import commonjs from '@rollup/plugin-commonjs';
-import typescript from '@rollup/plugin-typescript';
-import postcss from 'rollup-plugin-postcss';
+const nodeResolve = require('@rollup/plugin-node-resolve');
+const commonjs = require('@rollup/plugin-commonjs');
+const typescript = require('@rollup/plugin-typescript');
+const postcss = require('rollup-plugin-postcss');
 
-import packageInfo from './package.json' assert {type: 'json'};
+const packageInfo = require('./package.json');
 
-export default [
+module.exports = [
   {
     input: 'src/index.tsx',
     output: [
