@@ -1,6 +1,6 @@
 {
   "name": "@wavecx/wavecx-react",
-  "version": "1.6.6",
+  "version": "1.6.8",
   "description": "WaveCX React library",
   "homepage": "https://github.com/WaveCX/wavecx-react#readme",
   "repository": {
@@ -15,7 +15,7 @@
     "npm": ">=6"
   },
   "source": "src/index",
-  "main": "dist/index.cs",
+  "main": "dist/index.js",
   "style": "dist/styles.css",
   "types": "dist/index.d.ts",
   "files": [
