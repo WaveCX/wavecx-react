@@ -15,7 +15,7 @@
     "npm": ">=6"
   },
   "source": "src/index",
-  "main": "dist/index.cjs",
+  "main": "dist/index.cs",
   "style": "dist/styles.css",
   "types": "dist/index.d.ts",
   "files": [
@@ -25,7 +25,7 @@
   "exports": {
     ".": {
       "import": "./dist/index.mjs",
-      "require": "./dist/index.cjs",
+      "require": "./dist/index.js",
       "types": "./dist/index.d.ts"
     },
     "./styles.css": "./dist/styles.css"
