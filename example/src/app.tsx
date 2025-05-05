@@ -12,15 +12,16 @@ const triggerCodeForView = (view: View) =>
   view === 'trigger-two' ? import.meta.env.VITE_TRIGGER_TWO ?? 'financial-wellness' :
   view === 'trigger-three' ? import.meta.env.VITE_TRIGGER_THREE ?? 'payments' : undefined;
 
-export const App = () => {
+export const App = (props: {initialUserId?: string}) => {
   const {handleEvent, hasUserTriggeredContent} = useWaveCx();
 
   const [view, setView] = useState<View>('sign-in');
-  const [userId, setUserId] = useState<string | undefined>(undefined);
+  const [userId, setUserId] = useState<string | undefined>(props.initialUserId);
   const [userIdInput, setUserIdInput] = useState('');
 
   useEffect(() => {
     if (userId) {
+      sessionStorage.setItem('userId', userId);
       handleEvent({
         type: 'session-started',
         userId,
@@ -93,6 +94,7 @@ export const App = () => {
                 setUserIdInput('');
                 setView('sign-in');
                 handleEvent({type: 'session-ended'});
+                sessionStorage.removeItem('userId');
               }}
             >Sign Out</button>
           </li>
