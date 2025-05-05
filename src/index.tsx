@@ -15,4 +15,8 @@ export {
   type FireTargetedContentEvent,
 } from './targeted-content';
 
+export {
+  type InitiateSession,
+} from './sessions';
+
 import './styles.css';
