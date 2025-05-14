@@ -1,7 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 
-import {WaveCxProvider} from '@wavecx/wavecx-react';
+import { WaveCxProvider } from '@wavecx/wavecx-react';
 
 import {App} from './app';
 
@@ -14,7 +14,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       organizationCode={organizationCode}
       apiBaseUrl={apiUrl}
     >
-      <App/>
+      <App
+        initialUserId={sessionStorage.getItem('userId') ?? undefined}
+      />
     </WaveCxProvider>
   </React.StrictMode>,
 );
