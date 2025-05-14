@@ -35,10 +35,6 @@ export type ContentFetchStrategy =
   | 'session-start'
   | 'trigger-point';
 
-let isContentLoading = false;
-let eventQueue: Event[] = [];
-let contentCache: TargetedContent[] = [];
-
 export const WaveCxProvider = (props: {
   organizationCode: string;
   children?: ReactNode;
@@ -49,6 +45,12 @@ export const WaveCxProvider = (props: {
   disablePopupContent?: boolean;
   contentFetchStrategy?: ContentFetchStrategy;
 }) => {
+  const stateRef = useRef({
+    isContentLoading: false,
+    eventQueue: [] as Event[],
+    contentCache: [] as TargetedContent[],
+  });
+
   const recordEvent = useCallback(
       props.recordEvent ??
       composeFireTargetedContentEventViaApi({
@@ -77,32 +79,32 @@ export const WaveCxProvider = (props: {
       onContentDismissedCallback.current = undefined;
 
       if (event.type === 'session-started') {
-        contentCache = [];
+        stateRef.current.contentCache = [];
 
         const sessionToken = readSessionToken();
         if (sessionToken) {
           try {
-            isContentLoading = true;
+            stateRef.current.isContentLoading = true;
             const targetedContentResult = await recordEvent({
               organizationCode: props.organizationCode,
               type: 'session-refresh',
               sessionToken: sessionToken,
               userId: event.userId,
             });
-            contentCache = targetedContentResult.content;
+            stateRef.current.contentCache = targetedContentResult.content;
           } catch {
           }
-          isContentLoading = false;
-          if (eventQueue.length > 0) {
-            eventQueue.forEach((e) => handleEvent(e));
-            eventQueue = [];
+          stateRef.current.isContentLoading = false;
+          if (stateRef.current.eventQueue.length > 0) {
+            stateRef.current.eventQueue.forEach((e) => handleEvent(e));
+            stateRef.current.eventQueue = [];
           }
           return;
         }
 
         if (props.initiateSession) {
           try {
-            isContentLoading = true;
+            stateRef.current.isContentLoading = true;
             const sessionResult = await props.initiateSession({
               organizationCode: props.organizationCode,
               userId: event.userId,
@@ -116,15 +118,15 @@ export const WaveCxProvider = (props: {
               sessionToken: sessionResult.sessionToken,
               userId: event.userId,
             });
-            contentCache = targetedContentResult.content;
+            stateRef.current.contentCache = targetedContentResult.content;
           } catch {}
-          isContentLoading = false;
-          if (eventQueue.length > 0) {
-            eventQueue.forEach((e) => handleEvent(e));
-            eventQueue = [];
+          stateRef.current.isContentLoading = false;
+          if (stateRef.current.eventQueue.length > 0) {
+            stateRef.current.eventQueue.forEach((e) => handleEvent(e));
+            stateRef.current.eventQueue = [];
           }
         } else {
-          isContentLoading = true;
+          stateRef.current.isContentLoading = true;
           try {
             const targetedContentResult = await recordEvent({
               type: 'session-started',
@@ -136,17 +138,17 @@ export const WaveCxProvider = (props: {
             if (targetedContentResult.sessionToken) {
               storeSessionToken(targetedContentResult.sessionToken);
             }
-            contentCache = targetedContentResult.content;
+            stateRef.current.contentCache = targetedContentResult.content;
           } catch {
           }
-          isContentLoading = false;
-          if (eventQueue.length > 0) {
-            eventQueue.forEach((e) => handleEvent(e));
-            eventQueue = [];
+          stateRef.current.isContentLoading = false;
+          if (stateRef.current.eventQueue.length > 0) {
+            stateRef.current.eventQueue.forEach((e) => handleEvent(e));
+            stateRef.current.eventQueue = [];
           }
         }
       } else if (event.type === 'session-ended') {
-        contentCache = [];
+        stateRef.current.contentCache = [];
         setActivePopupContent(undefined);
         setActiveUserTriggeredContent(undefined);
         clearSessionToken();
@@ -158,23 +160,23 @@ export const WaveCxProvider = (props: {
         setActiveUserTriggeredContent(undefined);
         onContentDismissedCallback.current = event.onContentDismissed;
 
-        if (isContentLoading) {
-          eventQueue.push(event);
+        if (stateRef.current.isContentLoading) {
+          stateRef.current.eventQueue.push(event);
           return;
         }
 
         if (!props.disablePopupContent) {
-          setActivePopupContent(contentCache.filter((c) =>
+          setActivePopupContent(stateRef.current.contentCache.filter((c) =>
             c.triggerPoint === event.triggerPoint
             && c.presentationType === 'popup'
           )[0]);
 
-          contentCache = contentCache.filter((c) =>
+          stateRef.current.contentCache = stateRef.current.contentCache.filter((c) =>
             c.triggerPoint !== event.triggerPoint
             || c.presentationType !== 'popup'
           );
         }
-        setActiveUserTriggeredContent(contentCache.filter((c) =>
+        setActiveUserTriggeredContent(stateRef.current.contentCache.filter((c) =>
           c.triggerPoint === event.triggerPoint
           && c.presentationType === 'button-triggered'
         )[0]);
