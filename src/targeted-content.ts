@@ -52,7 +52,11 @@ export const composeFireTargetedContentEventViaApi =
         }),
       }
     );
-    return response.json();
+    if (response.ok) {
+      return response.json();
+    } else {
+      return { content: [] };
+    }
   };
 
 export const fireTargetedContentEventViaApi = composeFireTargetedContentEventViaApi({ apiBaseUrl: 'https://api.wavecx.com' });
