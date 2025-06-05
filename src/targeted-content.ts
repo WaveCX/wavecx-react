@@ -29,7 +29,7 @@ export type FireTargetedContentEvent = (options: {
   userId: string;
   userIdVerification?: string;
   userAttributes?: object;
-}) => Promise<{ sessionToken?: string; content: TargetedContent[] }>;
+}) => Promise<{ sessionToken?: string; expiresIn?: number; content: TargetedContent[] }>;
 
 export const composeFireTargetedContentEventViaApi =
   (dependencies: { apiBaseUrl: string }): FireTargetedContentEvent =>
