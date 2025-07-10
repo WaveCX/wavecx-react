@@ -11,6 +11,7 @@ import {createPortal} from 'react-dom';
 
 import {composeFireTargetedContentEventViaApi, type FireTargetedContentEvent, type TargetedContent} from './targeted-content';
 import {BusyIndicator} from './busy-indicator';
+import {useAutoModalFromCallback} from './use-auto-modal';
 
 export type Event =
   | { type: 'session-started'; userId: string; userIdVerification?: string; userAttributes?: object }
@@ -68,6 +69,8 @@ export const WaveCxProvider = (props: {
     | (() => void)
     | undefined
   >(undefined);
+
+  const autoDialogRef = useAutoModalFromCallback();
 
   const [activePopupContent, setActivePopupContent] = useState<TargetedContent | undefined>(undefined);
   const [activeUserTriggeredContent, setActiveUserTriggeredContent] = useState<TargetedContent | undefined>(undefined);
@@ -207,10 +210,7 @@ export const WaveCxProvider = (props: {
                 width: presentedContent.webModal?.widthCss,
                 margin: presentedContent.webModal?.marginCss,
               } as CSSProperties}
-              ref={(r) => {
-                r?.showModal();
-                r?.focus();
-              }}
+              ref={autoDialogRef}
               className={'__wcx_modal'}
               onClick={(e) => {
                 if (e.currentTarget === e.target) {
