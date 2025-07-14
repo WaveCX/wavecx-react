@@ -12,6 +12,7 @@ import {createPortal} from 'react-dom';
 import {composeFireTargetedContentEventViaApi, type FireTargetedContentEvent, type TargetedContent} from './targeted-content';
 import {BusyIndicator} from './busy-indicator';
 import {clearSessionToken, InitiateSession, readSessionToken, storeSessionToken} from './sessions';
+import {useAutoModalFromCallback} from './use-auto-modal';
 
 export type Event =
   | { type: 'session-started'; userId: string; userIdVerification?: string; userAttributes?: object }
@@ -64,6 +65,8 @@ export const WaveCxProvider = (props: {
     | undefined
   >(undefined);
 
+  const autoDialogRef = useAutoModalFromCallback();
+
   const [activePopupContent, setActivePopupContent] = useState<TargetedContent | undefined>(undefined);
   const [activeUserTriggeredContent, setActiveUserTriggeredContent] = useState<TargetedContent | undefined>(undefined);
   const [isUserTriggeredContentShown, setIsUserTriggeredContentShown] = useState(false);
@@ -111,7 +114,7 @@ export const WaveCxProvider = (props: {
               userIdVerification: event.userIdVerification,
               userAttributes: event.userAttributes,
             });
-            storeSessionToken(sessionResult.sessionToken);
+            storeSessionToken(sessionResult.sessionToken, sessionResult.expiresIn ?? 3600);
             const targetedContentResult = await recordEvent({
               organizationCode: props.organizationCode,
               type: 'session-refresh',
@@ -136,7 +139,7 @@ export const WaveCxProvider = (props: {
               userAttributes: event.userAttributes,
             });
             if (targetedContentResult.sessionToken) {
-              storeSessionToken(targetedContentResult.sessionToken);
+              storeSessionToken(targetedContentResult.sessionToken, targetedContentResult.expiresIn ?? 3600);
             }
             stateRef.current.contentCache = targetedContentResult.content;
           } catch {
@@ -213,10 +216,7 @@ export const WaveCxProvider = (props: {
                 width: presentedContent.webModal?.widthCss,
                 margin: presentedContent.webModal?.marginCss,
               } as CSSProperties}
-              ref={(r) => {
-                r?.showModal();
-                r?.focus();
-              }}
+              ref={autoDialogRef}
               className={'__wcx_modal'}
               onClick={(e) => {
                 if (e.currentTarget === e.target) {

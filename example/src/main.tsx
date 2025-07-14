@@ -1,4 +1,3 @@
-import React from 'react'
 import ReactDOM from 'react-dom/client'
 
 import { WaveCxProvider } from '@wavecx/wavecx-react';
@@ -9,14 +8,12 @@ const organizationCode = import.meta.env.VITE_ORGANIZATION_CODE;
 const apiUrl = import.meta.env.VITE_API_URL;
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <WaveCxProvider
-      organizationCode={organizationCode}
-      apiBaseUrl={apiUrl}
-    >
-      <App
-        initialUserId={sessionStorage.getItem('userId') ?? undefined}
-      />
-    </WaveCxProvider>
-  </React.StrictMode>,
+  <WaveCxProvider
+    organizationCode={organizationCode}
+    apiBaseUrl={apiUrl}
+  >
+    <App
+      initialUserId={sessionStorage.getItem('userId') ?? undefined}
+    />
+  </WaveCxProvider>
 );
