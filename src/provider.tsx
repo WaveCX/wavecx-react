@@ -24,11 +24,13 @@ export type EventHandler = (event: Event) => void;
 
 export interface WaveCxContextInterface {
   handleEvent: EventHandler;
+  hasPopupContentForTriggerPoint: (triggerPoint: string) => boolean;
   hasUserTriggeredContent: boolean;
 }
 
 export const WaveCxContext = createContext<WaveCxContextInterface>({
   handleEvent: () => undefined,
+  hasPopupContentForTriggerPoint: () => false,
   hasUserTriggeredContent: false,
 });
 
@@ -76,6 +78,16 @@ export const WaveCxProvider = (props: {
     activePopupContent ?? (isUserTriggeredContentShown
       ? activeUserTriggeredContent
       : undefined);
+
+  const checkPopupContent = useCallback(
+    (triggerPoint: string) => {
+      return stateRef.current.contentCache.some((c) =>
+        c.triggerPoint === triggerPoint
+        && c.presentationType === 'popup'
+      );
+    },
+    [],
+  );
 
   const handleEvent = useCallback<EventHandler>(
     async (event) => {
@@ -200,6 +212,7 @@ export const WaveCxProvider = (props: {
       value={{
         handleEvent,
         hasUserTriggeredContent: activeUserTriggeredContent !== undefined,
+        hasPopupContentForTriggerPoint: checkPopupContent,
       }}
     >
       {createPortal(
