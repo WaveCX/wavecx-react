@@ -109,6 +109,19 @@ When a trigger-point event is raised, WaveCX will check for and
 present any content set for that trigger point that is relevant
 for the current user.
 
+### Checking for Popup Content
+The WaveCX context provides a function `hasPopupContentForTriggerPoint`
+that can be used to check if popup content is available on a given trigger point.
+
+```ts
+const { handleEvent, hasPopupContentForTriggerPoint } = useWaveCx();
+
+const hasPopupContent = hasPopupContentForTriggerPoint('your-trigger-point');
+if (hasPopupContent) {
+  // your conditional logic for popup content available
+}
+```
+
 ### User-Triggered Content
 The WaveCX context provides a boolean value `hasUserTriggeredContent`
 indicating if the current trigger point has user-triggered
