@@ -351,6 +351,9 @@ describe(WaveCxProvider.name, () => {
     });
 
     screen.getByTitle('Close').click();
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
     expect(wasCallbackInvoked).toEqual(true);
   });
 

@@ -12,6 +12,11 @@ const triggerCodeForView = (view: View) =>
   view === 'trigger-two' ? import.meta.env.VITE_TRIGGER_TWO ?? 'financial-wellness' :
   view === 'trigger-three' ? import.meta.env.VITE_TRIGGER_THREE ?? 'payments' : undefined;
 
+const labelForView = (view: View) =>
+  view === 'trigger-one' ? 'Account View' :
+  view === 'trigger-two' ? 'Financial Wellness' :
+  view === 'trigger-three' ? 'Payments' : '';
+
 export const App = (props: {initialUserId?: string}) => {
   const {handleEvent, hasUserTriggeredContent} = useWaveCx();
 
@@ -74,17 +79,17 @@ export const App = (props: {initialUserId?: string}) => {
         <ul className={'nav'}>
           <li aria-current={view === 'trigger-one' ? 'page' : undefined}>
             <button onClick={() => setView('trigger-one')}>
-              Account View
+              {labelForView('trigger-one')}
             </button>
           </li>
           <li aria-current={view === 'trigger-two' ? 'page' : undefined}>
             <button onClick={() => setView('trigger-two')}>
-              Financial Wellness
+              {labelForView('trigger-two')}
             </button>
           </li>
           <li aria-current={view === 'trigger-three' ? 'page' : undefined}>
             <button onClick={() => setView('trigger-three')}>
-              Payments
+              {labelForView('trigger-three')}
             </button>
           </li>
           <li>
@@ -108,6 +113,11 @@ export const App = (props: {initialUserId?: string}) => {
             </button>
           </p>
         )}
+
+        <div style={{height: '150vh', padding: 20, backgroundColor: 'lightgray'}}>
+          <h1>{labelForView(view)}</h1>
+          <p>This is the {labelForView(view)} page.</p>
+        </div>
       </>
     );
   }

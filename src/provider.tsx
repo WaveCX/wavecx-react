@@ -67,7 +67,7 @@ export const WaveCxProvider = (props: {
     | undefined
   >(undefined);
 
-  const autoDialogRef = useAutoModalFromCallback();
+  const {autoDialogRef, dialogRef} = useAutoModalFromCallback();
 
   const [activePopupContent, setActivePopupContent] = useState<TargetedContent | undefined>(undefined);
   const [activeUserTriggeredContent, setActiveUserTriggeredContent] = useState<TargetedContent | undefined>(undefined);
@@ -219,58 +219,64 @@ export const WaveCxProvider = (props: {
         <>
           {presentedContent && (
             <dialog
-              style={{
-                opacity: presentedContent.webModal?.opacity,
-                boxShadow: presentedContent?.webModal?.shadowCss,
-                border: presentedContent?.webModal?.borderCss,
-                borderRadius: presentedContent?.webModal?.borderRadiusCss,
-                '--backdrop-filter': presentedContent.webModal?.backdropFilterCss,
-                height: presentedContent.webModal?.heightCss,
-                width: presentedContent.webModal?.widthCss,
-                margin: presentedContent.webModal?.marginCss,
-              } as CSSProperties}
               ref={autoDialogRef}
               className={'__wcx_modal'}
-              onClick={(e) => {
-                if (e.currentTarget === e.target) {
-                  dismissContent();
-                }
-              }}
               onClose={dismissContent}
             >
-              <button
-                className={[
-                  '__wcx_modalCloseButton',
-                  presentedContent.webModal?.closeButton.style === 'text' ? '__wcx_textButton' : ''
-                ].join(' ')}
-                onClick={dismissContent}
-                title={'Close'}
-              >
-                {presentedContent.webModal?.closeButton.style === 'text'
-                  ? presentedContent.webModal.closeButton.label
-                  : ''
-                }
-              </button>
-
-              {!isRemoteContentReady && (
-                <div className={'__wcx_loadingView'}>
-                  <BusyIndicator
-                    color={presentedContent.loading?.color}
-                    size={presentedContent.loading?.size}
-                    message={presentedContent.loading?.message ?? 'Loading featured content'}
-                  />
-                </div>
-              )}
-
-              <iframe
-                title={'Featured Content'}
-                src={presentedContent.viewUrl}
+              <div
+                className={'__wcx_modalContent'}
                 style={{
-                  display: isRemoteContentReady ? undefined : 'none',
-                }}
-                className={'__wcx_webview'}
-                onLoad={() => setIsRemoteContentReady(true)}
-              />
+                  opacity: presentedContent.webModal?.opacity,
+                  boxShadow: presentedContent?.webModal?.shadowCss,
+                  border: presentedContent?.webModal?.borderCss,
+                  borderRadius: presentedContent?.webModal?.borderRadiusCss,
+                  '--backdrop-filter': presentedContent.webModal?.backdropFilterCss,
+                  height: presentedContent.webModal?.heightCss,
+                  width: presentedContent.webModal?.widthCss,
+                  margin: presentedContent.webModal?.marginCss,
+                } as CSSProperties}
+              >
+                <form
+                  method={'dialog'}
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    dialogRef.current?.close();
+                  }}
+                >
+                  <button
+                    className={[
+                      '__wcx_modalCloseButton',
+                      presentedContent.webModal?.closeButton.style === 'text' ? '__wcx_textButton' : ''
+                    ].join(' ')}
+                    title={'Close'}
+                  >
+                    {presentedContent.webModal?.closeButton.style === 'text'
+                      ? presentedContent.webModal.closeButton.label
+                      : ''
+                    }
+                  </button>
+                </form>
+
+                {!isRemoteContentReady && (
+                  <div className={'__wcx_loadingView'}>
+                    <BusyIndicator
+                      color={presentedContent.loading?.color}
+                      size={presentedContent.loading?.size}
+                      message={presentedContent.loading?.message ?? 'Loading featured content'}
+                    />
+                  </div>
+                )}
+
+                <iframe
+                  title={'Featured Content'}
+                  src={presentedContent.viewUrl}
+                  style={{
+                    display: isRemoteContentReady ? undefined : 'none',
+                  }}
+                  className={'__wcx_webview'}
+                  onLoad={() => setIsRemoteContentReady(true)}
+                />
+              </div>
             </dialog>
           )}
         </>,

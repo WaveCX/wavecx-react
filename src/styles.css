@@ -42,20 +42,26 @@
 
 .__wcx_modal {
   animation: __wcx_slideUp 0.2s ease-out;
-  width: 90vw;
-  height: 90vh;
-  border-radius: 20px;
   overflow: hidden;
   padding: 0;
   border: none;
   top: 0;
   max-width: unset;
   max-height: unset;
-  background: white;
+  background: transparent;
+  outline: none;
 }
 .__wcx_modal::backdrop {
   background-color: rgba(0, 0, 0, 0.5);
   backdrop-filter: var(--backdrop-filter);
+}
+
+.__wcx_modalContent {
+  width: 90vw;
+  height: 90vh;
+  border-radius: 20px;
+  background: white;
+  overflow: hidden;
 }
 
 .__wcx_modalCloseButton {
