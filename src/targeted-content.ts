@@ -1,3 +1,5 @@
+import { version as SDK_VERSION } from '../package.json';
+
 export type TargetedContent = {
   triggerPoint: string;
   type: 'featurette';
@@ -38,7 +40,10 @@ export const composeFireTargetedContentEventViaApi =
       `${dependencies.apiBaseUrl}/${options.organizationCode}/targeted-content-events`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Client-Agent': `wavecx-react/${SDK_VERSION}`,
+        },
         body: JSON.stringify({
           type: options.type,
           sessionToken: options.sessionToken,
