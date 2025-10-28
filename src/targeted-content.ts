@@ -1,5 +1,3 @@
-import { version as SDK_VERSION } from '../package.json';
-
 export type TargetedContent = {
   triggerPoint: string;
   type: 'featurette';
@@ -33,6 +31,12 @@ export type FireTargetedContentEvent = (options: {
   userAttributes?: object;
 }) => Promise<{ sessionToken?: string; expiresIn?: number; content: TargetedContent[] }>;
 
+const SDK_VERSION = __SDK_VERSION__;
+
+export function clientAgent() {
+  return `wavecx-react/${SDK_VERSION}`;
+}
+
 export const composeFireTargetedContentEventViaApi =
   (dependencies: { apiBaseUrl: string }): FireTargetedContentEvent =>
   async (options): Promise<{ content: TargetedContent[] }> => {
@@ -42,7 +46,7 @@ export const composeFireTargetedContentEventViaApi =
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Client-Agent': `wavecx-react/${SDK_VERSION}`,
+          'X-Client-Agent': clientAgent(),
         },
         body: JSON.stringify({
           type: options.type,

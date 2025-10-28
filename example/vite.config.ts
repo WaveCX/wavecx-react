@@ -11,4 +11,7 @@ export default defineConfig({
       {find: pak.name, replacement: path.join(__dirname, '..', pak.source)},
     ],
   },
+  define: {
+    __SDK_VERSION__: JSON.stringify(pak.version),
+  },
 })
