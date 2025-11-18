@@ -8,6 +8,20 @@ export function useAutoModalFromCallback() {
   const clearCancelListenerRef = useRef<(() => void) | null>(null);
 
   const setRef = useCallback((node: HTMLDialogElement | null) => {
+    // Clean up previous listeners before setting up new ones
+    if (clearCloseListenerRef.current) {
+      clearCloseListenerRef.current();
+      clearCloseListenerRef.current = null;
+    }
+    if (clearOutsideClickListenerRef.current) {
+      clearOutsideClickListenerRef.current();
+      clearOutsideClickListenerRef.current = null;
+    }
+    if (clearCancelListenerRef.current) {
+      clearCancelListenerRef.current();
+      clearCancelListenerRef.current = null;
+    }
+
     if (!node) {
       return;
     }
@@ -69,11 +83,27 @@ export function useAutoModalFromCallback() {
 
   useLayoutEffect(() => {
     return () => {
+      // Clean up all event listeners
+      if (clearCloseListenerRef.current) {
+        clearCloseListenerRef.current();
+        clearCloseListenerRef.current = null;
+      }
+      if (clearOutsideClickListenerRef.current) {
+        clearOutsideClickListenerRef.current();
+        clearOutsideClickListenerRef.current = null;
+      }
+      if (clearCancelListenerRef.current) {
+        clearCancelListenerRef.current();
+        clearCancelListenerRef.current = null;
+      }
+
+      // Close dialog if still open
       const dialog = dialogRef.current;
       if (dialog?.open) {
         dialog.close();
       }
 
+      // Restore body overflow
       if (prevOverflowRef.current !== null) {
         document.body.style.overflow = prevOverflowRef.current;
         prevOverflowRef.current = null;
