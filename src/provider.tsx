@@ -304,14 +304,17 @@ export const WaveCxProvider = (props: {
     });
   }, []);
 
+  const contextValue = useMemo(
+    () => ({
+      handleEvent,
+      hasUserTriggeredContent: activeUserTriggeredContent !== undefined,
+      hasPopupContentForTriggerPoint: checkPopupContent,
+    }),
+    [handleEvent, activeUserTriggeredContent, checkPopupContent]
+  );
+
   return (
-    <WaveCxContext.Provider
-      value={{
-        handleEvent,
-        hasUserTriggeredContent: activeUserTriggeredContent !== undefined,
-        hasPopupContentForTriggerPoint: checkPopupContent,
-      }}
-    >
+    <WaveCxContext.Provider value={contextValue}>
       {createPortal(
         <>
           {presentedContent && (
