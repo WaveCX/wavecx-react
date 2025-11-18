@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -62,8 +63,8 @@ export const WaveCxProvider = (props: {
   contentFetchStrategy?: ContentFetchStrategy;
   debugMode?: boolean;
 }) => {
-  const debugLog = useCallback(
-    createDebugLogger(props.debugMode ?? false),
+  const debugLog = useMemo(
+    () => createDebugLogger(props.debugMode ?? false),
     [props.debugMode]
   );
 
@@ -262,7 +263,7 @@ export const WaveCxProvider = (props: {
     setIsUserTriggeredContentShown(false);
     setActivePopupContent(undefined);
     setIsRemoteContentReady(false);
-  }, [onContentDismissedCallback.current, debugLog]);
+  }, [debugLog]);
 
   useEffect(() => {
     debugLog('WaveCxProvider initialized', {
