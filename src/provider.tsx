@@ -22,7 +22,7 @@ export type Event =
   | { type: 'trigger-point'; triggerPoint: string; onContentDismissed?: () => void }
   | { type: 'user-triggered-content'; onContentDismissed?: () => void };
 
-export type EventHandler = (event: Event) => void;
+export type EventHandler = (event: Event) => void | Promise<void>;
 
 export interface WaveCxContextInterface {
   handleEvent: EventHandler;
@@ -113,6 +113,24 @@ export const WaveCxProvider = (props: {
     async (event) => {
       debugLog('handleEvent called', { eventType: event.type });
 
+      // Helper to process queued events sequentially
+      const processQueuedEvents = async () => {
+        if (stateRef.current.eventQueue.length === 0) return;
+
+        const queue = [...stateRef.current.eventQueue];
+        stateRef.current.eventQueue = [];
+
+        debugLog('Processing queued events', { queueLength: queue.length });
+
+        for (const queuedEvent of queue) {
+          try {
+            await handleEvent(queuedEvent);
+          } catch (error) {
+            debugLog('Error processing queued event', { event: queuedEvent, error });
+          }
+        }
+      };
+
       if (event.type === 'session-started') {
         onContentDismissedCallback.current = undefined;
         debugLog('Starting session', { userId: event.userId });
@@ -135,11 +153,7 @@ export const WaveCxProvider = (props: {
             debugLog('Session refresh failed', { error });
           }
           stateRef.current.isContentLoading = false;
-          if (stateRef.current.eventQueue.length > 0) {
-            debugLog('Processing queued events', { queueLength: stateRef.current.eventQueue.length });
-            stateRef.current.eventQueue.forEach((e) => handleEvent(e));
-            stateRef.current.eventQueue = [];
-          }
+          await processQueuedEvents();
           return;
         }
 
@@ -167,11 +181,7 @@ export const WaveCxProvider = (props: {
             debugLog('Session initiation failed', { error });
           }
           stateRef.current.isContentLoading = false;
-          if (stateRef.current.eventQueue.length > 0) {
-            debugLog('Processing queued events', { queueLength: stateRef.current.eventQueue.length });
-            stateRef.current.eventQueue.forEach((e) => handleEvent(e));
-            stateRef.current.eventQueue = [];
-          }
+          await processQueuedEvents();
         } else {
           debugLog('Starting new session via API');
           stateRef.current.isContentLoading = true;
@@ -193,11 +203,7 @@ export const WaveCxProvider = (props: {
             debugLog('Session start failed', { error });
           }
           stateRef.current.isContentLoading = false;
-          if (stateRef.current.eventQueue.length > 0) {
-            debugLog('Processing queued events', { queueLength: stateRef.current.eventQueue.length });
-            stateRef.current.eventQueue.forEach((e) => handleEvent(e));
-            stateRef.current.eventQueue = [];
-          }
+          await processQueuedEvents();
         }
       } else if (event.type === 'session-ended') {
         onContentDismissedCallback.current = undefined;
