@@ -11,6 +11,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <WaveCxProvider
     organizationCode={organizationCode}
     apiBaseUrl={apiUrl}
+    debugMode={true}
   >
     <App
       initialUserId={sessionStorage.getItem('userId') ?? undefined}
