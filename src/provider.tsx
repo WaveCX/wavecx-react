@@ -112,9 +112,9 @@ export const WaveCxProvider = (props: {
   const handleEvent = useCallback<EventHandler>(
     async (event) => {
       debugLog('handleEvent called', { eventType: event.type });
-      onContentDismissedCallback.current = undefined;
 
       if (event.type === 'session-started') {
+        onContentDismissedCallback.current = undefined;
         debugLog('Starting session', { userId: event.userId });
         stateRef.current.contentCache = [];
 
@@ -200,6 +200,7 @@ export const WaveCxProvider = (props: {
           }
         }
       } else if (event.type === 'session-ended') {
+        onContentDismissedCallback.current = undefined;
         debugLog('Ending session');
         stateRef.current.contentCache = [];
         setActivePopupContent(undefined);
@@ -259,10 +260,12 @@ export const WaveCxProvider = (props: {
 
   const dismissContent = useCallback(() => {
     debugLog('Content dismissed');
-    onContentDismissedCallback.current?.();
+    const callback = onContentDismissedCallback.current;
     setIsUserTriggeredContentShown(false);
     setActivePopupContent(undefined);
     setIsRemoteContentReady(false);
+    // Call callback after state updates to ensure it's invoked even if component unmounts
+    callback?.();
   }, [debugLog]);
 
   useEffect(() => {
