@@ -52,6 +52,18 @@ const createDebugLogger = (debugMode: boolean) => {
   };
 };
 
+const isValidContentUrl = (url: string): boolean => {
+  try {
+    const parsed = new URL(url);
+    // Only allow http and https protocols to prevent XSS attacks
+    // Blocks: javascript:, data:, file:, blob:, etc.
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  } catch {
+    // Invalid URL format
+    return false;
+  }
+};
+
 export const WaveCxProvider = (props: {
   organizationCode: string;
   children?: ReactNode;
@@ -236,8 +248,12 @@ export const WaveCxProvider = (props: {
           )[0];
 
           if (popupContent) {
-            debugLog('Popup content found for trigger point', { triggerPoint: event.triggerPoint });
-            setActivePopupContent(popupContent);
+            if (isValidContentUrl(popupContent.viewUrl)) {
+              debugLog('Popup content found for trigger point', { triggerPoint: event.triggerPoint });
+              setActivePopupContent(popupContent);
+            } else {
+              debugLog('Popup content rejected - invalid URL', { triggerPoint: event.triggerPoint, viewUrl: popupContent.viewUrl });
+            }
           } else {
             debugLog('No popup content found for trigger point', { triggerPoint: event.triggerPoint });
           }
@@ -254,8 +270,12 @@ export const WaveCxProvider = (props: {
         )[0];
 
         if (userTriggeredContent) {
-          debugLog('User-triggered content found for trigger point', { triggerPoint: event.triggerPoint });
-          setActiveUserTriggeredContent(userTriggeredContent);
+          if (isValidContentUrl(userTriggeredContent.viewUrl)) {
+            debugLog('User-triggered content found for trigger point', { triggerPoint: event.triggerPoint });
+            setActiveUserTriggeredContent(userTriggeredContent);
+          } else {
+            debugLog('User-triggered content rejected - invalid URL', { triggerPoint: event.triggerPoint, viewUrl: userTriggeredContent.viewUrl });
+          }
         } else {
           debugLog('No user-triggered content found for trigger point', { triggerPoint: event.triggerPoint });
         }
@@ -347,6 +367,7 @@ export const WaveCxProvider = (props: {
                 <iframe
                   title={'Featured Content'}
                   src={presentedContent.viewUrl}
+                  sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation"
                   style={{
                     display: isRemoteContentReady ? undefined : 'none',
                   }}
