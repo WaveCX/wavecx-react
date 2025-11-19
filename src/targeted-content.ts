@@ -38,33 +38,47 @@ export function clientAgent() {
 }
 
 export const composeFireTargetedContentEventViaApi =
-  (dependencies: { apiBaseUrl: string }): FireTargetedContentEvent =>
+  (dependencies: { apiBaseUrl: string; retryFn?: typeof import('./retry').retryWithBackoff }): FireTargetedContentEvent =>
   async (options): Promise<{ content: TargetedContent[] }> => {
-    const response = await fetch(
-      `${dependencies.apiBaseUrl}/${options.organizationCode}/targeted-content-events`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Client-Agent': clientAgent(),
-        },
-        body: JSON.stringify({
-          type: options.type,
-          sessionToken: options.sessionToken,
-          userId: options.userId,
-          userIdVerification: options.userIdVerification,
-          triggerPoint: options.triggerPoint,
-          platform: 'desktop',
-          userData: {
-            attributes: options.userAttributes,
+    const makeRequest = async () => {
+      const response = await fetch(
+        `${dependencies.apiBaseUrl}/${options.organizationCode}/targeted-content-events`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Client-Agent': clientAgent(),
           },
-        }),
+          body: JSON.stringify({
+            type: options.type,
+            sessionToken: options.sessionToken,
+            userId: options.userId,
+            userIdVerification: options.userIdVerification,
+            triggerPoint: options.triggerPoint,
+            platform: 'desktop',
+            userData: {
+              attributes: options.userAttributes,
+            },
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`API request failed with status ${response.status}`);
       }
-    );
-    if (response.ok) {
+
       return response.json();
+    };
+
+    if (dependencies.retryFn) {
+      return dependencies.retryFn(makeRequest);
     } else {
-      return { content: [] };
+      // Fallback without retry
+      try {
+        return await makeRequest();
+      } catch {
+        return { content: [] };
+      }
     }
   };
 

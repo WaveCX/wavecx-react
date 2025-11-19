@@ -15,6 +15,7 @@ import {composeFireTargetedContentEventViaApi, type FireTargetedContentEvent, ty
 import {BusyIndicator} from './busy-indicator';
 import {clearSessionToken, InitiateSession, readSessionToken, storeSessionToken} from './sessions';
 import {useAutoModalFromCallback} from './use-auto-modal';
+import {retryWithBackoff, defaultRetryConfig, type RetryConfig} from './retry';
 
 export type Event =
   | { type: 'session-started'; userId: string; userIdVerification?: string; userAttributes?: object }
@@ -64,6 +65,7 @@ const isValidContentUrl = (url: string): boolean => {
   }
 };
 
+
 export const WaveCxProvider = (props: {
   organizationCode: string;
   children?: ReactNode;
@@ -74,6 +76,7 @@ export const WaveCxProvider = (props: {
   disablePopupContent?: boolean;
   contentFetchStrategy?: ContentFetchStrategy;
   debugMode?: boolean;
+  retryConfig?: RetryConfig;
 }) => {
   const debugLog = useMemo(
     () => createDebugLogger(props.debugMode ?? false),
@@ -86,13 +89,21 @@ export const WaveCxProvider = (props: {
     contentCache: [] as TargetedContent[],
   });
 
-  const recordEvent = useCallback(
-      props.recordEvent ??
-      composeFireTargetedContentEventViaApi({
-        apiBaseUrl: props.apiBaseUrl ?? 'https://api.wavecx.com',
-      }),
-    [props.recordEvent, props.apiBaseUrl],
-  );
+  const retryConfig = props.retryConfig ?? defaultRetryConfig;
+
+  const recordEvent = useMemo(() => {
+    if (props.recordEvent) {
+      return props.recordEvent;
+    }
+
+    const retryFn = (fn: () => Promise<any>) =>
+      retryWithBackoff(fn, retryConfig, debugLog);
+
+    return composeFireTargetedContentEventViaApi({
+      apiBaseUrl: props.apiBaseUrl ?? 'https://api.wavecx.com',
+      retryFn,
+    });
+  }, [props.recordEvent, props.apiBaseUrl, retryConfig, debugLog]);
 
   const onContentDismissedCallback = useRef<
     | (() => void)
@@ -303,6 +314,11 @@ export const WaveCxProvider = (props: {
       contentFetchStrategy: props.contentFetchStrategy ?? 'trigger-point',
     });
   }, []);
+
+  // Reset content load state when content changes
+  useEffect(() => {
+    setIsRemoteContentReady(false);
+  }, [presentedContent?.viewUrl]);
 
   const contextValue = useMemo(
     () => ({
