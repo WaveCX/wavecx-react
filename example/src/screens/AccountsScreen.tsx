@@ -8,7 +8,7 @@ type AccountsScreenProps = {
 };
 
 export const AccountsScreen = ({ user }: AccountsScreenProps) => {
-  const { handleEvent, hasContent } = useWaveCx();
+  const { handleEvent, hasContent, isContentLoading } = useWaveCx();
   const totalBalance = user.balance.checking + user.balance.savings;
 
   useEffect(() => {
@@ -70,7 +70,12 @@ export const AccountsScreen = ({ user }: AccountsScreenProps) => {
 
       <div className="section">
         <h2>Alerts & Notifications</h2>
-        {triggerButtons.length > 0 ? (
+        {isContentLoading ? (
+          <div className="empty-state">
+            <div className="spinner"></div>
+            <div className="empty-state-text">Loading content...</div>
+          </div>
+        ) : triggerButtons.length > 0 ? (
           <div className="trigger-buttons">
             {triggerButtons.map(trigger => (
               <button

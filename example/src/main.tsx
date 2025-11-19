@@ -23,6 +23,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             { triggerPoint: TRIGGER_POINTS['savings-promotion'].code, presentationType: 'popup' },
             { triggerPoint: TRIGGER_POINTS['credit-card-offer'].code, presentationType: 'popup' },
             { triggerPoint: TRIGGER_POINTS['investment-promotion'].code, presentationType: 'popup' },
+            { triggerPoint: TRIGGER_POINTS['banking-services'].code, presentationType: 'popup' },
           ]),
           // Can also provide custom content for specific trigger points -- see mockContent.ts
           // ...customMockContent,

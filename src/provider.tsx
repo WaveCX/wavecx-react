@@ -60,6 +60,11 @@ export interface WaveCxContextInterface {
    * This flag only reflects the most recently fired trigger point and doesn't tell you which one.
    */
   hasUserTriggeredContent: boolean;
+  /**
+   * Indicates if the SDK is currently loading content from the API.
+   * Useful for showing loading spinners during initial content fetch.
+   */
+  isContentLoading: boolean;
 }
 
 export const WaveCxContext = createContext<WaveCxContextInterface>({
@@ -67,6 +72,7 @@ export const WaveCxContext = createContext<WaveCxContextInterface>({
   hasPopupContentForTriggerPoint: () => false,
   hasContent: () => false,
   hasUserTriggeredContent: false,
+  isContentLoading: false,
 });
 
 export type ContentFetchStrategy =
@@ -110,6 +116,9 @@ export const WaveCxProvider = (props: {
   initiateSession?: InitiateSession;
   portalParent?: Element;
   disablePopupContent?: boolean;
+  /**
+   * @deprecated This prop no longer has any effect. Content is always fetched at session start.
+   */
   contentFetchStrategy?: ContentFetchStrategy;
   debugMode?: boolean;
   retryConfig?: RetryConfig;
@@ -183,6 +192,7 @@ export const WaveCxProvider = (props: {
   const [activeUserTriggeredContent, setActiveUserTriggeredContent] = useState<TargetedContent | undefined>(undefined);
   const [isUserTriggeredContentShown, setIsUserTriggeredContentShown] = useState(false);
   const [isRemoteContentReady, setIsRemoteContentReady] = useState(false);
+  const [isContentLoading, setIsContentLoading] = useState(false);
 
   const presentedContent =
     activePopupContent ?? (isUserTriggeredContentShown
@@ -213,6 +223,12 @@ export const WaveCxProvider = (props: {
     async (event) => {
       debugLog('handleEvent called', { eventType: event.type });
 
+      // Helper to update loading state
+      const updateLoadingState = (loading: boolean) => {
+        stateRef.current.isContentLoading = loading;
+        setIsContentLoading(loading);
+      };
+
       // Helper to process queued events sequentially
       const processQueuedEvents = async () => {
         if (stateRef.current.eventQueue.length === 0) return;
@@ -239,7 +255,7 @@ export const WaveCxProvider = (props: {
         // Mock mode: skip API calls and use mock content
         if (mockModeConfig.enabled) {
           debugLog('Mock mode enabled - using mock content instead of API call');
-          stateRef.current.isContentLoading = true;
+          updateLoadingState(true);
 
           // Simulate network delay if configured
           await simulateNetworkDelay(mockModeConfig);
@@ -249,7 +265,7 @@ export const WaveCxProvider = (props: {
           updateContentCache(mockContent);
           debugLog('Mock content loaded', { mockContent });
 
-          stateRef.current.isContentLoading = false;
+          updateLoadingState(false);
           await processQueuedEvents();
           return;
         }
@@ -258,7 +274,7 @@ export const WaveCxProvider = (props: {
         if (sessionToken) {
           debugLog('Existing session token found, refreshing session');
           try {
-            stateRef.current.isContentLoading = true;
+            updateLoadingState(true);
             const targetedContentResult = await recordEvent({
               organizationCode: props.organizationCode,
               type: 'session-refresh',
@@ -270,7 +286,7 @@ export const WaveCxProvider = (props: {
           } catch (error) {
             debugLog('Session refresh failed', { error });
           }
-          stateRef.current.isContentLoading = false;
+          updateLoadingState(false);
           await processQueuedEvents();
           return;
         }
@@ -278,7 +294,7 @@ export const WaveCxProvider = (props: {
         if (props.initiateSession) {
           debugLog('Using custom initiateSession function');
           try {
-            stateRef.current.isContentLoading = true;
+            updateLoadingState(true);
             const sessionResult = await props.initiateSession({
               organizationCode: props.organizationCode,
               userId: event.userId,
@@ -298,11 +314,11 @@ export const WaveCxProvider = (props: {
           } catch (error) {
             debugLog('Session initiation failed', { error });
           }
-          stateRef.current.isContentLoading = false;
+          updateLoadingState(false);
           await processQueuedEvents();
         } else {
           debugLog('Starting new session via API');
-          stateRef.current.isContentLoading = true;
+          updateLoadingState(true);
           try {
             const targetedContentResult = await recordEvent({
               type: 'session-started',
@@ -320,7 +336,7 @@ export const WaveCxProvider = (props: {
           } catch (error) {
             debugLog('Session start failed', { error });
           }
-          stateRef.current.isContentLoading = false;
+          updateLoadingState(false);
           await processQueuedEvents();
         }
       } else if (event.type === 'session-ended') {
@@ -426,7 +442,7 @@ export const WaveCxProvider = (props: {
       apiBaseUrl: props.apiBaseUrl ?? 'https://api.wavecx.com',
       debugMode: props.debugMode ?? false,
       disablePopupContent: props.disablePopupContent ?? false,
-      contentFetchStrategy: props.contentFetchStrategy ?? 'trigger-point',
+      contentFetchStrategy: 'session-start', // Always fetch at session start (trigger-point strategy deprecated)
       mockMode: mockModeConfig.enabled,
     });
   }, []);
@@ -442,8 +458,9 @@ export const WaveCxProvider = (props: {
       hasUserTriggeredContent: activeUserTriggeredContent !== undefined,
       hasPopupContentForTriggerPoint: checkPopupContent,
       hasContent: checkContent,
+      isContentLoading,
     }),
-    [handleEvent, activeUserTriggeredContent, checkPopupContent, checkContent]
+    [handleEvent, activeUserTriggeredContent, checkPopupContent, checkContent, isContentLoading]
   );
 
   return (

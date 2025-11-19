@@ -178,4 +178,27 @@ export const customMockContent: Record<string, TargetedContent[]> = {
       },
     },
   ],
+  [TRIGGER_POINTS['banking-services'].code]: [
+    {
+      triggerPoint: TRIGGER_POINTS['banking-services'].code,
+      type: 'featurette',
+      presentationType: 'popup',
+      viewUrl: createMockHtml(
+        '🏦 Welcome to Our Banking Services',
+        'Explore our full range of financial products designed to help you achieve your goals. From checking and savings to loans and investments, we have everything you need.',
+        '#007AFF'
+      ),
+      webModal: {
+        opacity: 1,
+        backdropFilterCss: 'blur(10px)',
+        shadowCss: '0 10px 40px rgba(0, 0, 0, 0.3)',
+        borderCss: 'none',
+        borderRadiusCss: '16px',
+        heightCss: '450px',
+        widthCss: '550px',
+        marginCss: 'auto',
+        closeButton: { style: 'text', label: 'Close' },
+      },
+    },
+  ],
 };
