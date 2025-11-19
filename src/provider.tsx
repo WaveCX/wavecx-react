@@ -429,6 +429,7 @@ export const WaveCxProvider = (props: {
   const dismissContent = useCallback(() => {
     debugLog('Content dismissed');
     const callback = onContentDismissedCallback.current;
+    onContentDismissedCallback.current = undefined;
     setIsUserTriggeredContentShown(false);
     setActivePopupContent(undefined);
     setIsRemoteContentReady(false);
