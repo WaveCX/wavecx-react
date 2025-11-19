@@ -169,6 +169,8 @@ application tree.
 | recordEvent          | function (FireTargetedContentEvent) | function to record a raised event, returning relevant content                                                                   | false    | fireTargetedContentEventViaApi (makes real calls to WaveCX API) |
 | disablePopupContent  | boolean                             | disables pop-up content; only user-triggered content will be presented                                                          | false    | false                                                           |
 | contentFetchStrategy | ContentFetchStrategy                | configures content fetching to be done once at session start (one fetch for all trigger points) or once per trigger point       | false    | trigger-point                                                   |
+| debugMode            | boolean                             | enables debug logging to console for troubleshooting                                                                            | false    | false                                                           |
+| retryConfig          | RetryConfig                         | configures retry behavior for API calls (maxAttempts, delays)                                                                   | false    | `{maxAttempts: 3, initialDelay: 1000, maxDelay: 32000, multiplier: 2.0}` |
 
 #### Types
 ```ts
@@ -191,6 +193,35 @@ type FireTargetedContentEvent = (options: {
 type ContentFetchStrategy =
   | 'session-start'
   | 'trigger-point';
+
+type RetryConfig = {
+  maxAttempts: number;      // Number of retry attempts (default: 3)
+  initialDelay: number;     // Initial delay in milliseconds (default: 1000)
+  maxDelay: number;         // Maximum delay cap in milliseconds (default: 32000)
+  multiplier: number;       // Exponential backoff multiplier (default: 2.0)
+};
+```
+
+### Network Retry
+The SDK automatically retries failed API calls using exponential backoff. By default, it will:
+- Retry up to 3 times
+- Use delays of 1s, 2s, 4s between attempts
+- Cap maximum delay at 32 seconds
+
+You can customize this behavior using the `retryConfig` prop:
+
+```tsx
+<WaveCxProvider
+  organizationCode={'your-org-code'}
+  retryConfig={{
+    maxAttempts: 5,
+    initialDelay: 500,  // 500ms, 1s, 2s, 4s, 8s
+    maxDelay: 10000,    // cap at 10 seconds
+    multiplier: 2.0,
+  }}
+>
+  <App />
+</WaveCxProvider>
 ```
 
 ## Example Application
