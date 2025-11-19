@@ -110,7 +110,7 @@ function generateDefaultMockContent(triggerPoint: string): TargetedContent[] {
   const closeButton = { style: 'text' as const, label: 'Close' };
   const webModal = {
     opacity: 1,
-    backdropFilterCss: 'blur(10px)',
+    backdropFilterCss: 'blur(1px)',
     shadowCss: '0 10px 40px rgba(0, 0, 0, 0.3)',
     borderCss: 'none',
     borderRadiusCss: '16px',

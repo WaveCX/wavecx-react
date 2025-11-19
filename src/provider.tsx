@@ -472,6 +472,9 @@ export const WaveCxProvider = (props: {
               ref={autoDialogRef}
               className={'__wcx_modal'}
               onClose={dismissContent}
+              style={{
+                '--backdrop-filter': presentedContent.webModal?.backdropFilterCss,
+              } as CSSProperties}
             >
               <div
                 className={'__wcx_modalContent'}
@@ -480,7 +483,6 @@ export const WaveCxProvider = (props: {
                   boxShadow: presentedContent?.webModal?.shadowCss,
                   border: presentedContent?.webModal?.borderCss,
                   borderRadius: presentedContent?.webModal?.borderRadiusCss,
-                  '--backdrop-filter': presentedContent.webModal?.backdropFilterCss,
                   height: presentedContent.webModal?.heightCss,
                   width: presentedContent.webModal?.widthCss,
                   margin: presentedContent.webModal?.marginCss,
