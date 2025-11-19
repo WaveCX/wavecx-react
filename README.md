@@ -171,6 +171,7 @@ application tree.
 | contentFetchStrategy | ContentFetchStrategy                | configures content fetching to be done once at session start (one fetch for all trigger points) or once per trigger point       | false    | trigger-point                                                   |
 | debugMode            | boolean                             | enables debug logging to console for troubleshooting                                                                            | false    | false                                                           |
 | retryConfig          | RetryConfig                         | configures retry behavior for API calls (maxAttempts, delays)                                                                   | false    | `{maxAttempts: 3, initialDelay: 1000, maxDelay: 32000, multiplier: 2.0}` |
+| mockModeConfig       | MockModeConfig                      | enables mock mode for testing without API calls, generating simulated content                                                   | false    | `{enabled: false}`                                              |
 
 #### Types
 ```ts
@@ -200,6 +201,17 @@ type RetryConfig = {
   maxDelay: number;         // Maximum delay cap in milliseconds (default: 32000)
   multiplier: number;       // Exponential backoff multiplier (default: 2.0)
 };
+
+type MockModeConfig = {
+  enabled: boolean;                            // Enable/disable mock mode (default: false)
+  networkDelay?: number;                       // Simulate network latency in milliseconds
+  contentStrategy?: MockContentStrategy;       // Which trigger points get content
+  customContent?: Record<string, TargetedContent[]>;  // Custom content per trigger point
+};
+
+type MockContentStrategy =
+  | { type: 'all-trigger-points' }             // Generate content for any trigger point
+  | { type: 'specific-trigger-points'; triggerPoints: string[] };  // Only specific points
 ```
 
 ### Network Retry
@@ -223,6 +235,91 @@ You can customize this behavior using the `retryConfig` prop:
   <App />
 </WaveCxProvider>
 ```
+
+### Mock Mode
+Mock mode allows you to test WaveCX integration without making real API calls. When enabled, the SDK generates simulated content locally for testing purposes.
+
+#### Basic Mock Mode
+Enable mock mode to automatically generate content for all trigger points:
+
+```tsx
+<WaveCxProvider
+  organizationCode={'your-org-code'}
+  mockModeConfig={{
+    enabled: true,
+  }}
+>
+  <App />
+</WaveCxProvider>
+```
+
+#### Mock Mode with Network Delay
+Simulate network latency for more realistic testing:
+
+```tsx
+<WaveCxProvider
+  organizationCode={'your-org-code'}
+  mockModeConfig={{
+    enabled: true,
+    networkDelay: 1000,  // 1 second delay
+  }}
+>
+  <App />
+</WaveCxProvider>
+```
+
+#### Specific Trigger Points Only
+Generate content only for specific trigger points:
+
+```tsx
+<WaveCxProvider
+  organizationCode={'your-org-code'}
+  mockModeConfig={{
+    enabled: true,
+    contentStrategy: {
+      type: 'specific-trigger-points',
+      triggerPoints: ['home-screen', 'checkout-page'],
+    },
+  }}
+>
+  <App />
+</WaveCxProvider>
+```
+
+#### Custom Mock Content
+Provide your own custom content for testing:
+
+```tsx
+<WaveCxProvider
+  organizationCode={'your-org-code'}
+  mockModeConfig={{
+    enabled: true,
+    customContent: {
+      'home-screen': [
+        {
+          triggerPoint: 'home-screen',
+          type: 'featurette',
+          presentationType: 'popup',
+          viewUrl: 'https://example.com/announcement',
+          webModal: {
+            opacity: 0.3,
+            borderRadiusCss: '16px',
+            heightCss: '80vh',
+            widthCss: '600px',
+            closeButton: { style: 'text', label: 'Close' },
+          },
+        },
+      ],
+    },
+  }}
+>
+  <App />
+</WaveCxProvider>
+```
+
+**Note:** Mock mode generates two content items per trigger point by default:
+- **Popup content** (automatic display) with a purple gradient
+- **Button-triggered content** (user-initiated) with a pink gradient
 
 ## Example Application
 An example application is available at https://github.com/WaveCX/wavecx-react/tree/main/example

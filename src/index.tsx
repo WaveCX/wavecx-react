@@ -24,4 +24,10 @@ export {
   defaultRetryConfig,
 } from './retry';
 
+export {
+  type MockModeConfig,
+  defaultMockModeConfig,
+  generateMockContent,
+} from './mock-mode';
+
 import './styles.css';

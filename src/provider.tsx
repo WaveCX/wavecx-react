@@ -16,24 +16,56 @@ import {BusyIndicator} from './busy-indicator';
 import {clearSessionToken, InitiateSession, readSessionToken, storeSessionToken} from './sessions';
 import {useAutoModalFromCallback} from './use-auto-modal';
 import {retryWithBackoff, defaultRetryConfig, type RetryConfig} from './retry';
+import {
+  type MockModeConfig,
+  defaultMockModeConfig,
+  getInitialMockContent,
+  simulateNetworkDelay,
+} from './mock-mode';
 
 export type Event =
   | { type: 'session-started'; userId: string; userIdVerification?: string; userAttributes?: object }
   | { type: 'session-ended' }
   | { type: 'trigger-point'; triggerPoint: string; onContentDismissed?: () => void }
-  | { type: 'user-triggered-content'; onContentDismissed?: () => void };
+  | { type: 'user-triggered-content'; triggerPoint?: string; onContentDismissed?: () => void };
 
 export type EventHandler = (event: Event) => void | Promise<void>;
 
 export interface WaveCxContextInterface {
   handleEvent: EventHandler;
+  /**
+   * @deprecated Use `hasContent(triggerPoint, 'popup')` instead
+   */
   hasPopupContentForTriggerPoint: (triggerPoint: string) => boolean;
+  /**
+   * Check if content is available for a specific trigger point.
+   *
+   * @param triggerPoint - The trigger point code to check
+   * @param presentationType - Optional presentation type filter ('popup' or 'button-triggered')
+   * @returns true if content is available
+   *
+   * @example
+   * // Check for any content type
+   * const hasContent = hasContent('account-dashboard');
+   *
+   * // Check for specific presentation type
+   * const hasPopup = hasContent('low-balance-alert', 'popup');
+   * const hasButtonContent = hasContent('account-dashboard', 'button-triggered');
+   */
+  hasContent: (triggerPoint: string, presentationType?: 'popup' | 'button-triggered') => boolean;
+  /**
+   * Indicates if button-triggered content is available for the LAST FIRED trigger point.
+   *
+   * @deprecated Use `hasContent(triggerPoint, 'button-triggered')` to check for specific trigger points instead.
+   * This flag only reflects the most recently fired trigger point and doesn't tell you which one.
+   */
   hasUserTriggeredContent: boolean;
 }
 
 export const WaveCxContext = createContext<WaveCxContextInterface>({
   handleEvent: () => undefined,
   hasPopupContentForTriggerPoint: () => false,
+  hasContent: () => false,
   hasUserTriggeredContent: false,
 });
 
@@ -53,11 +85,15 @@ const createDebugLogger = (debugMode: boolean) => {
   };
 };
 
-const isValidContentUrl = (url: string): boolean => {
+const isValidContentUrl = (url: string, mockModeEnabled: boolean): boolean => {
   try {
     const parsed = new URL(url);
+    // In mock mode, allow data: URLs for inline content
+    if (mockModeEnabled && parsed.protocol === 'data:') {
+      return true;
+    }
     // Only allow http and https protocols to prevent XSS attacks
-    // Blocks: javascript:, data:, file:, blob:, etc.
+    // Blocks: javascript:, file:, blob:, etc.
     return parsed.protocol === 'https:' || parsed.protocol === 'http:';
   } catch {
     // Invalid URL format
@@ -77,17 +113,48 @@ export const WaveCxProvider = (props: {
   contentFetchStrategy?: ContentFetchStrategy;
   debugMode?: boolean;
   retryConfig?: RetryConfig;
+  mockModeConfig?: MockModeConfig;
 }) => {
   const debugLog = useMemo(
     () => createDebugLogger(props.debugMode ?? false),
     [props.debugMode]
   );
 
+  const mockModeConfig = props.mockModeConfig ?? defaultMockModeConfig;
+
   const stateRef = useRef({
     isContentLoading: false,
     eventQueue: [] as Event[],
-    contentCache: [] as TargetedContent[],
   });
+
+  // Content cache uses a hybrid state + ref approach to solve the "stale closure" problem:
+  // - `contentCache` (state): Used by check functions (hasPopupContentForTriggerPoint, etc.)
+  //   so that components re-render when content availability changes
+  // - `contentCacheRef` (ref): Used inside `handleEvent` to read current content without
+  //   causing `handleEvent` to be recreated on every cache change (which would cause infinite loops)
+  // This is a standard React pattern until useEffectEvent becomes stable.
+  // See: https://react.dev/learn/separating-events-from-effects#declaring-an-effect-event
+  const [contentCache, setContentCache] = useState<TargetedContent[]>([]);
+  const contentCacheRef = useRef<TargetedContent[]>(contentCache);
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    contentCacheRef.current = contentCache;
+  }, [contentCache]);
+
+  // Helper to update both state and ref synchronously
+  const updateContentCache = useCallback((newContent: TargetedContent[] | ((prev: TargetedContent[]) => TargetedContent[])) => {
+    if (typeof newContent === 'function') {
+      setContentCache(prev => {
+        const updated = newContent(prev);
+        contentCacheRef.current = updated;
+        return updated;
+      });
+    } else {
+      contentCacheRef.current = newContent;
+      setContentCache(newContent);
+    }
+  }, []);
 
   const retryConfig = props.retryConfig ?? defaultRetryConfig;
 
@@ -124,12 +191,22 @@ export const WaveCxProvider = (props: {
 
   const checkPopupContent = useCallback(
     (triggerPoint: string) => {
-      return stateRef.current.contentCache.some((c) =>
+      return contentCache.some((c) =>
         c.triggerPoint === triggerPoint
         && c.presentationType === 'popup'
       );
     },
-    [],
+    [contentCache],
+  );
+
+  const checkContent = useCallback(
+    (triggerPoint: string, presentationType?: 'popup' | 'button-triggered') => {
+      return contentCache.some((c) =>
+        c.triggerPoint === triggerPoint
+        && (presentationType === undefined || c.presentationType === presentationType)
+      );
+    },
+    [contentCache],
   );
 
   const handleEvent = useCallback<EventHandler>(
@@ -157,7 +234,25 @@ export const WaveCxProvider = (props: {
       if (event.type === 'session-started') {
         onContentDismissedCallback.current = undefined;
         debugLog('Starting session', { userId: event.userId });
-        stateRef.current.contentCache = [];
+        updateContentCache([]);
+
+        // Mock mode: skip API calls and use mock content
+        if (mockModeConfig.enabled) {
+          debugLog('Mock mode enabled - using mock content instead of API call');
+          stateRef.current.isContentLoading = true;
+
+          // Simulate network delay if configured
+          await simulateNetworkDelay(mockModeConfig);
+
+          // Get initial mock content
+          const mockContent = getInitialMockContent(mockModeConfig);
+          updateContentCache(mockContent);
+          debugLog('Mock content loaded', { mockContent });
+
+          stateRef.current.isContentLoading = false;
+          await processQueuedEvents();
+          return;
+        }
 
         const sessionToken = readSessionToken();
         if (sessionToken) {
@@ -170,8 +265,8 @@ export const WaveCxProvider = (props: {
               sessionToken: sessionToken,
               userId: event.userId,
             });
-            stateRef.current.contentCache = targetedContentResult.content;
-            debugLog('Session refreshed successfully', { contentCount: targetedContentResult.content.length });
+            updateContentCache(targetedContentResult.content);
+            debugLog('Session refreshed successfully', { content: targetedContentResult.content });
           } catch (error) {
             debugLog('Session refresh failed', { error });
           }
@@ -198,8 +293,8 @@ export const WaveCxProvider = (props: {
               sessionToken: sessionResult.sessionToken,
               userId: event.userId,
             });
-            stateRef.current.contentCache = targetedContentResult.content;
-            debugLog('Content fetched successfully', { contentCount: targetedContentResult.content.length });
+            updateContentCache(targetedContentResult.content);
+            debugLog('Content fetched successfully', { content: targetedContentResult.content });
           } catch (error) {
             debugLog('Session initiation failed', { error });
           }
@@ -220,8 +315,8 @@ export const WaveCxProvider = (props: {
               storeSessionToken(targetedContentResult.sessionToken, targetedContentResult.expiresIn ?? 3600);
               debugLog('Session token stored');
             }
-            stateRef.current.contentCache = targetedContentResult.content;
-            debugLog('Session started successfully', { contentCount: targetedContentResult.content.length });
+            updateContentCache(targetedContentResult.content);
+            debugLog('Session started successfully', { content: targetedContentResult.content });
           } catch (error) {
             debugLog('Session start failed', { error });
           }
@@ -231,13 +326,33 @@ export const WaveCxProvider = (props: {
       } else if (event.type === 'session-ended') {
         onContentDismissedCallback.current = undefined;
         debugLog('Ending session');
-        stateRef.current.contentCache = [];
+        updateContentCache([]);
         setActivePopupContent(undefined);
         setActiveUserTriggeredContent(undefined);
         clearSessionToken();
         debugLog('Session ended successfully');
       } else if (event.type === 'user-triggered-content') {
-        debugLog('Showing user-triggered content');
+        debugLog('Showing user-triggered content', { triggerPoint: event.triggerPoint });
+
+        // If a specific trigger point is provided, load that content
+        if (event.triggerPoint) {
+          const userTriggeredContent = contentCacheRef.current.filter((c) =>
+            c.triggerPoint === event.triggerPoint
+            && c.presentationType === 'button-triggered'
+          )[0];
+
+          if (userTriggeredContent) {
+            if (isValidContentUrl(userTriggeredContent.viewUrl, mockModeConfig.enabled)) {
+              debugLog('User-triggered content found for specific trigger point', { triggerPoint: event.triggerPoint });
+              setActiveUserTriggeredContent(userTriggeredContent);
+            } else {
+              debugLog('User-triggered content rejected - invalid URL', { triggerPoint: event.triggerPoint, viewUrl: userTriggeredContent.viewUrl });
+            }
+          } else {
+            debugLog('No user-triggered content found for specific trigger point', { triggerPoint: event.triggerPoint });
+          }
+        }
+
         setIsUserTriggeredContentShown(true);
         onContentDismissedCallback.current = event.onContentDismissed;
       } else if (event.type === 'trigger-point') {
@@ -253,13 +368,13 @@ export const WaveCxProvider = (props: {
         }
 
         if (!props.disablePopupContent) {
-          const popupContent = stateRef.current.contentCache.filter((c) =>
+          const popupContent = contentCacheRef.current.filter((c) =>
             c.triggerPoint === event.triggerPoint
             && c.presentationType === 'popup'
           )[0];
 
           if (popupContent) {
-            if (isValidContentUrl(popupContent.viewUrl)) {
+            if (isValidContentUrl(popupContent.viewUrl, mockModeConfig.enabled)) {
               debugLog('Popup content found for trigger point', { triggerPoint: event.triggerPoint });
               setActivePopupContent(popupContent);
             } else {
@@ -269,19 +384,19 @@ export const WaveCxProvider = (props: {
             debugLog('No popup content found for trigger point', { triggerPoint: event.triggerPoint });
           }
 
-          stateRef.current.contentCache = stateRef.current.contentCache.filter((c) =>
+          updateContentCache(prev => prev.filter((c) =>
             c.triggerPoint !== event.triggerPoint
             || c.presentationType !== 'popup'
-          );
+          ));
         }
 
-        const userTriggeredContent = stateRef.current.contentCache.filter((c) =>
+        const userTriggeredContent = contentCacheRef.current.filter((c) =>
           c.triggerPoint === event.triggerPoint
           && c.presentationType === 'button-triggered'
         )[0];
 
         if (userTriggeredContent) {
-          if (isValidContentUrl(userTriggeredContent.viewUrl)) {
+          if (isValidContentUrl(userTriggeredContent.viewUrl, mockModeConfig.enabled)) {
             debugLog('User-triggered content found for trigger point', { triggerPoint: event.triggerPoint });
             setActiveUserTriggeredContent(userTriggeredContent);
           } else {
@@ -292,7 +407,7 @@ export const WaveCxProvider = (props: {
         }
       }
     },
-    [props.organizationCode, recordEvent, debugLog],
+    [props.organizationCode, recordEvent, debugLog, mockModeConfig, props.disablePopupContent, updateContentCache, props.initiateSession],
   );
 
   const dismissContent = useCallback(() => {
@@ -312,6 +427,7 @@ export const WaveCxProvider = (props: {
       debugMode: props.debugMode ?? false,
       disablePopupContent: props.disablePopupContent ?? false,
       contentFetchStrategy: props.contentFetchStrategy ?? 'trigger-point',
+      mockMode: mockModeConfig.enabled,
     });
   }, []);
 
@@ -325,8 +441,9 @@ export const WaveCxProvider = (props: {
       handleEvent,
       hasUserTriggeredContent: activeUserTriggeredContent !== undefined,
       hasPopupContentForTriggerPoint: checkPopupContent,
+      hasContent: checkContent,
     }),
-    [handleEvent, activeUserTriggeredContent, checkPopupContent]
+    [handleEvent, activeUserTriggeredContent, checkPopupContent, checkContent]
   );
 
   return (
