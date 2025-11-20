@@ -109,34 +109,44 @@ When a trigger-point event is raised, WaveCX will check for and
 present any content set for that trigger point that is relevant
 for the current user.
 
-### Checking for Popup Content
-The WaveCX context provides a function `hasPopupContentForTriggerPoint`
-that can be used to check if popup content is available on a given trigger point.
+### Checking for Available Content
+The WaveCX context provides a `hasContent()` function to check if content
+is available for a specific trigger point and presentation type.
 
 ```ts
-const { handleEvent, hasPopupContentForTriggerPoint } = useWaveCx();
+const { handleEvent, hasContent } = useWaveCx();
 
-const hasPopupContent = hasPopupContentForTriggerPoint('your-trigger-point');
-if (hasPopupContent) {
+// Check if any content is available for a trigger point
+const hasAnyContent = hasContent('your-trigger-point');
+
+// Check for specific presentation types
+const hasPopup = hasContent('your-trigger-point', 'popup');
+const hasButtonContent = hasContent('your-trigger-point', 'button-triggered');
+
+if (hasPopup) {
   // your conditional logic for popup content available
 }
 ```
 
+**Deprecated:** `hasPopupContentForTriggerPoint()` is deprecated. Use `hasContent(triggerPoint, 'popup')` instead.
+
 ### User-Triggered Content
-The WaveCX context provides a boolean value `hasUserTriggeredContent`
-indicating if the current trigger point has user-triggered
-content available. To present this content, a `user-triggered-content`
-event should be fired:
+You can check for button-triggered content availability and display
+a button or UI element to let users access it on demand:
 
 ```tsx
-const { handleEvent, hasUserTriggeredContent } = useWaveCx();
+const { handleEvent, hasContent } = useWaveCx();
+
+// Check if button-triggered content is available for a specific trigger point
+const hasButtonContent = hasContent('your-trigger-point', 'button-triggered');
 
 // in render
-{hasUserTriggeredContent && (
+{hasButtonContent && (
   <Button
-    title={'User-Triggered Content'}
-    onClick={() => handleEvent({ 
+    title={'View Content'}
+    onClick={() => handleEvent({
       type: 'user-triggered-content',
+      triggerPoint: 'your-trigger-point',
       onContentDismissed: () => {
         // optional callback when content is closed by user
       }
@@ -144,6 +154,28 @@ const { handleEvent, hasUserTriggeredContent } = useWaveCx();
   />
 )}
 ```
+
+**Deprecated:** `hasUserTriggeredContent` boolean is deprecated. Use `hasContent(triggerPoint, 'button-triggered')` instead.
+The old flag only reflected the most recently fired trigger point and didn't indicate which one.
+
+### Content Loading State
+The WaveCX context provides an `isContentLoading` flag that indicates when
+the SDK is fetching content from the API. This is useful for showing loading
+indicators during the initial content fetch:
+
+```tsx
+const { handleEvent, isContentLoading, hasContent } = useWaveCx();
+
+// in render
+{isContentLoading ? (
+  <div className="loading-spinner">Loading content...</div>
+) : hasContent('your-trigger-point', 'popup') && (
+  <div>Content is available!</div>
+)}
+```
+
+The loading state is automatically set to `true` when a session starts and
+remains `true` until the content fetch completes.
 
 ### Session Ended Events
 If trigger points may still be reached in your application
@@ -154,6 +186,17 @@ should no longer be handled for a previously identified user.
 ```ts
 handleEvent({ type: 'session-ended' });
 ```
+
+### useWaveCx Hook
+The `useWaveCx()` hook provides access to the WaveCX context and returns the following:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `handleEvent` | `EventHandler` | Function to raise WaveCX events (session-started, trigger-point, etc.) |
+| `hasContent` | `(triggerPoint: string, presentationType?: 'popup' \| 'button-triggered') => boolean` | Check if content is available for a trigger point, optionally filtered by presentation type |
+| `isContentLoading` | `boolean` | Indicates if the SDK is currently loading content from the API |
+| `hasPopupContentForTriggerPoint` | `(triggerPoint: string) => boolean` | **DEPRECATED** - Use `hasContent(triggerPoint, 'popup')` instead |
+| `hasUserTriggeredContent` | `boolean` | **DEPRECATED** - Use `hasContent(triggerPoint, 'button-triggered')` instead |
 
 ## API
 
@@ -168,7 +211,7 @@ application tree.
 | apiBaseUrl           | string                              | base URL which API calls are made to                                                                                            | false    | https://api.wavecx.com                                          |
 | recordEvent          | function (FireTargetedContentEvent) | function to record a raised event, returning relevant content                                                                   | false    | fireTargetedContentEventViaApi (makes real calls to WaveCX API) |
 | disablePopupContent  | boolean                             | disables pop-up content; only user-triggered content will be presented                                                          | false    | false                                                           |
-| contentFetchStrategy | ContentFetchStrategy                | configures content fetching to be done once at session start (one fetch for all trigger points) or once per trigger point       | false    | trigger-point                                                   |
+| contentFetchStrategy | ContentFetchStrategy                | **DEPRECATED** - no longer has any effect; content is always fetched at session start                                           | false    | session-start                                                   |
 | debugMode            | boolean                             | enables debug logging to console for troubleshooting                                                                            | false    | false                                                           |
 | retryConfig          | RetryConfig                         | configures retry behavior for API calls (maxAttempts, delays)                                                                   | false    | `{maxAttempts: 3, initialDelay: 1000, maxDelay: 32000, multiplier: 2.0}` |
 | mockModeConfig       | MockModeConfig                      | enables mock mode for testing without API calls, generating simulated content                                                   | false    | `{enabled: false}`                                              |
