@@ -4,7 +4,7 @@
 
 import crypto from 'crypto-js';
 
-const signingSecret = import.meta.env.VITE_HASH_SECRET;
+const signingSecret = 'fake-signing-secret'; // would be a real secret stored SERVER-SIDE in production
 
 export const createUserIdVerification = (userId: string): string | undefined =>
   signingSecret

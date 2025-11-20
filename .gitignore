@@ -5,8 +5,7 @@
 /node_modules
 
 # IDEs
-**/.idea/workspace.xml
-**/.idea/tasks.xml
+/.idea
 
 # misc
 .DS_Store
