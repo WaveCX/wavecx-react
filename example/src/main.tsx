@@ -11,7 +11,7 @@ import { customMockContent } from './mockContent';
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <WaveCxProvider
-      organizationCode={'demos'}
+      organizationCode={'demo-org'}
       debugMode={true}
       mockModeConfig={{
         enabled: true,
