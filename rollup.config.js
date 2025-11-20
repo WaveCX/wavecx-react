@@ -23,6 +23,11 @@ module.exports = [
         sourcemap: true,
       },
     ],
+    external: [
+      'react',
+      'react-dom',
+      'react/jsx-runtime',
+    ],
     plugins: [
       nodeResolve(),
       commonjs(),
