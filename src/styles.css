@@ -1,3 +1,7 @@
+body:has(dialog.__wcx_modal[open]) {
+  overflow: hidden;
+}
+
 @keyframes __wcx_fadeIn {
   0% {opacity: 0}
   100% {opacity: 1}
