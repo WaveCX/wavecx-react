@@ -2,7 +2,6 @@ import { useCallback, useLayoutEffect, useRef } from 'react';
 
 export function useAutoModalFromCallback() {
   const dialogRef = useRef<HTMLDialogElement | null>(null);
-  const prevOverflowRef = useRef<string | null>(null);
   const clearCloseListenerRef = useRef<(() => void) | null>(null);
   const clearOutsideClickListenerRef = useRef<(() => void) | null>(null);
   const clearCancelListenerRef = useRef<(() => void) | null>(null);
@@ -33,14 +32,7 @@ export function useAutoModalFromCallback() {
         node.showModal();
         node.focus();
 
-        prevOverflowRef.current = document.body.style.overflow;
-        document.body.style.overflow = 'hidden';
-
         const handleClose = () => {
-          if (prevOverflowRef.current !== null) {
-            document.body.style.overflow = prevOverflowRef.current;
-            prevOverflowRef.current = null;
-          }
           if (clearOutsideClickListenerRef.current) {
             clearOutsideClickListenerRef.current();
             clearOutsideClickListenerRef.current = null;
@@ -101,12 +93,6 @@ export function useAutoModalFromCallback() {
       const dialog = dialogRef.current;
       if (dialog?.open) {
         dialog.close();
-      }
-
-      // Restore body overflow
-      if (prevOverflowRef.current !== null) {
-        document.body.style.overflow = prevOverflowRef.current;
-        prevOverflowRef.current = null;
       }
     };
   }, []);
