@@ -373,26 +373,27 @@ export function createHandleEvent(config: CoreConfig): EventHandler {
       notify();
       debugLog('Session ended successfully');
     } else if (event.type === 'user-triggered-content') {
-      debugLog('Showing user-triggered content', { triggerPoint: event.triggerPoint });
+      const triggerPoint = event.triggerPoint ?? activeTriggerPoint;
+      debugLog('Showing user-triggered content', { triggerPoint });
 
-      if (event.triggerPoint) {
+      if (triggerPoint) {
         const content = contentCache.find((c) =>
-          c.triggerPoint === event.triggerPoint
+          c.triggerPoint === triggerPoint
           && c.presentationType === 'button-triggered'
         );
 
         if (content) {
           if (isValidContentUrl(content.viewUrl, mockModeConfig.enabled)) {
-            debugLog('User-triggered content found', { triggerPoint: event.triggerPoint });
+            debugLog('User-triggered content found', { triggerPoint });
             currentDismissCallback = event.onContentDismissed;
             renderModal(content, debugLog);
           } else {
             debugLog('User-triggered content rejected - invalid URL', {
-              triggerPoint: event.triggerPoint, viewUrl: content.viewUrl,
+              triggerPoint, viewUrl: content.viewUrl,
             });
           }
         } else {
-          debugLog('No user-triggered content found', { triggerPoint: event.triggerPoint });
+          debugLog('No user-triggered content found', { triggerPoint });
         }
       }
     } else if (event.type === 'trigger-point') {

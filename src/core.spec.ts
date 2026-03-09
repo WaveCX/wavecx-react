@@ -198,6 +198,27 @@ describe('core', () => {
     });
   });
 
+  describe('user-triggered content', () => {
+    it('falls back to active trigger point when no triggerPoint provided', async () => {
+      const handleEvent = createHandleEvent({
+        organizationCode: 'org',
+        recordEvent: async () => ({
+          content: [mockContent({triggerPoint: 'tp-1', presentationType: 'button-triggered'})],
+        }),
+      });
+
+      await handleEvent({type: 'session-started', userId: 'user-1'});
+      await handleEvent({type: 'trigger-point', triggerPoint: 'tp-1'});
+
+      // Fire user-triggered-content WITHOUT a triggerPoint (v1.7.4 compat)
+      await handleEvent({type: 'user-triggered-content'});
+
+      const dialog = document.querySelector('dialog');
+      expect(dialog).not.toBeNull();
+      expect(dialog!.open).toBe(true);
+    });
+  });
+
   describe('trigger points', () => {
     it('consumes popup content after trigger point fires', async () => {
       const handleEvent = createHandleEvent({
