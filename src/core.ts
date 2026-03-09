@@ -229,7 +229,8 @@ function dismissModal() {
   cleanupOutsideClickListener?.();
   cleanupOutsideClickListener = undefined;
   if (modalContainer) {
-    modalContainer.innerHTML = '';
+    modalContainer.remove();
+    modalContainer = null;
   }
   activeTriggerPoint = undefined;
   const callback = currentDismissCallback;
