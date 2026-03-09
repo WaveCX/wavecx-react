@@ -228,8 +228,9 @@ function renderModal(content: TargetedContent, debugLog: DebugLog) {
 function dismissModal() {
   cleanupOutsideClickListener?.();
   cleanupOutsideClickListener = undefined;
-  const container = getModalContainer();
-  container.innerHTML = '';
+  if (modalContainer) {
+    modalContainer.innerHTML = '';
+  }
   activeTriggerPoint = undefined;
   const callback = currentDismissCallback;
   currentDismissCallback = undefined;

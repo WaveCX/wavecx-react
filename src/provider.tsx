@@ -105,6 +105,7 @@ export const WaveCxProvider = (props: {
   }
 
   const cache = getContentCache();
+  const loading = getIsContentLoading();
   const triggerPoint = getActiveTriggerPoint();
   const hasUserTriggered = triggerPoint !== undefined && cache.some(c =>
     c.triggerPoint === triggerPoint
@@ -117,9 +118,9 @@ export const WaveCxProvider = (props: {
       hasPopupContentForTriggerPoint,
       hasContent,
       hasUserTriggeredContent: hasUserTriggered,
-      isContentLoading: getIsContentLoading(),
+      isContentLoading: loading,
     }),
-    [hasUserTriggered, cache],
+    [hasUserTriggered, cache, loading],
   );
 
   return (
