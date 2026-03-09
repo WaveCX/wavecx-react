@@ -1,9 +1,10 @@
 import {useEffect} from 'react';
-import {describe, it, expect, beforeAll} from 'vitest';
+import {describe, it, expect, beforeAll, beforeEach} from 'vitest';
 import {render, screen, waitFor, type waitForOptions} from '@testing-library/react';
 import '@testing-library/jest-dom/vitest'
 
 import {useWaveCx, WaveCxProvider} from './provider';
+import {resetCoreState} from './core';
 
 const verifyNeverOccurs = async (negativeAssertionFn: () => unknown, options?: waitForOptions) => {
   await expect(
@@ -31,12 +32,17 @@ const setupMockHtmlDialogElement = () => {
     this: HTMLDialogElement
   ) {
     this.open = false;
+    this.dispatchEvent(new Event('close'));
   };
 };
 
 describe(WaveCxProvider.name, () => {
   beforeAll(() => {
     setupMockHtmlDialogElement();
+  });
+
+  beforeEach(() => {
+    resetCoreState();
   });
 
   it('renders provided child elements', () => {
@@ -307,10 +313,7 @@ describe(WaveCxProvider.name, () => {
     });
   });
 
-  // KNOWN ISSUE: This test fails due to timing/async issues with callback invocation
-  // in the test environment, but the callback behavior works correctly in real usage.
-  // The callback is properly invoked when content is dismissed in production.
-  it.skip('invokes an optional callback when popup content is dismissed', async () => {
+  it('invokes an optional callback when popup content is dismissed', async () => {
     let wasCallbackInvoked = false;
 
     const Consumer = () => {
@@ -360,10 +363,7 @@ describe(WaveCxProvider.name, () => {
     expect(wasCallbackInvoked).toEqual(true);
   });
 
-  // KNOWN ISSUE: This test fails due to timing/async issues with callback invocation
-  // in the test environment, but the callback behavior works correctly in real usage.
-  // The callback is properly invoked when user-triggered content is dismissed in production.
-  it.skip('invokes an optional callback when user-triggered content is dismissed', async () => {
+  it('invokes an optional callback when user-triggered content is dismissed', async () => {
     let wasCallbackInvoked = false;
 
     const Consumer = () => {
@@ -384,6 +384,7 @@ describe(WaveCxProvider.name, () => {
         <button
           onClick={() => handleEvent({
             type: 'user-triggered-content',
+            triggerPoint: 'trigger-point',
             onContentDismissed: () => {
               wasCallbackInvoked = true;
             }
@@ -422,15 +423,11 @@ describe(WaveCxProvider.name, () => {
   });
 
   it('provides isContentLoading flag during content fetch', async () => {
-    let loadingStates: boolean[] = [];
+    let resolveApi!: (value: any) => void;
+    const apiPromise = new Promise(r => { resolveApi = r; });
 
     const Consumer = () => {
       const {handleEvent, isContentLoading} = useWaveCx();
-
-      // Track loading state changes
-      useEffect(() => {
-        loadingStates.push(isContentLoading);
-      }, [isContentLoading]);
 
       useEffect(() => {
         handleEvent({
@@ -440,9 +437,7 @@ describe(WaveCxProvider.name, () => {
       }, [handleEvent]);
 
       return (
-        <div>
-          <span data-testid="loading-status">{isContentLoading ? 'loading' : 'ready'}</span>
-        </div>
+        <span data-testid="loading-status">{isContentLoading ? 'loading' : 'ready'}</span>
       );
     };
 
@@ -450,8 +445,7 @@ describe(WaveCxProvider.name, () => {
       <WaveCxProvider
         organizationCode={'org'}
         recordEvent={async () => {
-          // Simulate API delay
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await apiPromise;
           return {
             content: [{
               type: 'featurette',
@@ -466,22 +460,299 @@ describe(WaveCxProvider.name, () => {
       </WaveCxProvider>
     );
 
-    // Initially should be loading
+    // Should be loading while API hasn't resolved
     await waitFor(() => {
       expect(screen.getByTestId('loading-status')).toHaveTextContent('loading');
     });
+
+    // Resolve the API call
+    resolveApi(undefined);
 
     // Eventually should finish loading
     await waitFor(() => {
       expect(screen.getByTestId('loading-status')).toHaveTextContent('ready');
     });
+  });
 
-    // Should have captured both states
-    expect(loadingStates).toContain(false); // initial state
-    expect(loadingStates).toContain(true);  // loading state
+  it('shares content state across multiple providers', async () => {
+    const ConsumerA = () => {
+      const {handleEvent} = useWaveCx();
+
+      useEffect(() => {
+        handleEvent({
+          type: 'session-started',
+          userId: 'test-id',
+        });
+      }, []);
+
+      return <span data-testid="consumer-a">A</span>;
+    };
+
+    const ConsumerB = () => {
+      const {hasContent} = useWaveCx();
+      return (
+        <span data-testid="consumer-b">
+          {hasContent('trigger-point', 'button-triggered') ? 'has-content' : 'no-content'}
+        </span>
+      );
+    };
+
+    render(
+      <>
+        <WaveCxProvider
+          organizationCode={'org'}
+          recordEvent={async () => ({
+            content: [{
+              type: 'featurette',
+              presentationType: 'button-triggered',
+              triggerPoint: 'trigger-point',
+              viewUrl: 'https://mock.content.com/embed',
+            }],
+          })}
+        >
+          <ConsumerA/>
+        </WaveCxProvider>
+        <WaveCxProvider organizationCode={'org'}>
+          <ConsumerB/>
+        </WaveCxProvider>
+      </>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('consumer-b')).toHaveTextContent('has-content');
+    });
+  });
+
+  it('shares loading state across multiple providers', async () => {
+    let resolveApi!: (value: any) => void;
+    const apiPromise = new Promise(r => { resolveApi = r; });
+
+    const ConsumerA = () => {
+      const {handleEvent} = useWaveCx();
+
+      useEffect(() => {
+        handleEvent({
+          type: 'session-started',
+          userId: 'test-id',
+        });
+      }, []);
+
+      return <span data-testid="consumer-a">A</span>;
+    };
+
+    const ConsumerB = () => {
+      const {isContentLoading} = useWaveCx();
+      return (
+        <span data-testid="consumer-b-loading">
+          {isContentLoading ? 'loading' : 'ready'}
+        </span>
+      );
+    };
+
+    render(
+      <>
+        <WaveCxProvider
+          organizationCode={'org'}
+          recordEvent={async () => {
+            await apiPromise;
+            return {content: []};
+          }}
+        >
+          <ConsumerA/>
+        </WaveCxProvider>
+        <WaveCxProvider organizationCode={'org'}>
+          <ConsumerB/>
+        </WaveCxProvider>
+      </>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('consumer-b-loading')).toHaveTextContent('loading');
+    });
+
+    resolveApi(undefined);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('consumer-b-loading')).toHaveTextContent('ready');
+    });
+  });
+
+  it('shares content state across multiple providers', async () => {
+    const ConsumerA = () => {
+      const {handleEvent} = useWaveCx();
+
+      useEffect(() => {
+        handleEvent({
+          type: 'session-started',
+          userId: 'test-id',
+        });
+      }, []);
+
+      return <span data-testid="consumer-a">A</span>;
+    };
+
+    const ConsumerB = () => {
+      const {hasContent} = useWaveCx();
+      return (
+        <span data-testid="consumer-b">
+          {hasContent('trigger-point', 'button-triggered') ? 'has-content' : 'no-content'}
+        </span>
+      );
+    };
+
+    render(
+      <>
+        <WaveCxProvider
+          organizationCode={'org'}
+          recordEvent={async () => ({
+            content: [{
+              type: 'featurette',
+              presentationType: 'button-triggered',
+              triggerPoint: 'trigger-point',
+              viewUrl: 'https://mock.content.com/embed',
+            }],
+          })}
+        >
+          <ConsumerA/>
+        </WaveCxProvider>
+        <WaveCxProvider organizationCode={'org'}>
+          <ConsumerB/>
+        </WaveCxProvider>
+      </>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('consumer-b')).toHaveTextContent('has-content');
+    });
+  });
+
+  it('shares loading state across multiple providers', async () => {
+    let resolveApi!: (value: any) => void;
+    const apiPromise = new Promise(r => { resolveApi = r; });
+
+    const ConsumerA = () => {
+      const {handleEvent} = useWaveCx();
+
+      useEffect(() => {
+        handleEvent({
+          type: 'session-started',
+          userId: 'test-id',
+        });
+      }, []);
+
+      return <span data-testid="consumer-a">A</span>;
+    };
+
+    const ConsumerB = () => {
+      const {isContentLoading} = useWaveCx();
+      return (
+        <span data-testid="consumer-b-loading">
+          {isContentLoading ? 'loading' : 'ready'}
+        </span>
+      );
+    };
+
+    render(
+      <>
+        <WaveCxProvider
+          organizationCode={'org'}
+          recordEvent={async () => {
+            await apiPromise;
+            return {content: []};
+          }}
+        >
+          <ConsumerA/>
+        </WaveCxProvider>
+        <WaveCxProvider organizationCode={'org'}>
+          <ConsumerB/>
+        </WaveCxProvider>
+      </>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('consumer-b-loading')).toHaveTextContent('loading');
+    });
+
+    resolveApi(undefined);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('consumer-b-loading')).toHaveTextContent('ready');
+    });
+  });
+
+  it('hasUserTriggeredContent is false when active trigger point has no button-triggered content', async () => {
+    const Consumer = () => {
+      const {handleEvent, hasUserTriggeredContent} = useWaveCx();
+
+      useEffect(() => {
+        handleEvent({
+          type: 'session-started',
+          userId: 'test-id',
+        });
+      }, []);
+
+      return (
+        <>
+          <button
+            onClick={() => handleEvent({
+              type: 'trigger-point',
+              triggerPoint: 'with-content',
+            })}
+          >With Content</button>
+
+          <button
+            onClick={() => handleEvent({
+              type: 'trigger-point',
+              triggerPoint: 'without-content',
+            })}
+          >Without Content</button>
+
+          <span data-testid="has-user-triggered">
+            {hasUserTriggeredContent ? 'yes' : 'no'}
+          </span>
+        </>
+      );
+    };
+
+    render(
+      <WaveCxProvider
+        organizationCode={'org'}
+        recordEvent={async () => ({
+          content: [{
+            type: 'featurette',
+            presentationType: 'button-triggered',
+            triggerPoint: 'with-content',
+            viewUrl: 'https://mock.content.com/embed',
+          }],
+        })}
+      >
+        <Consumer/>
+      </WaveCxProvider>
+    );
+
+    // Fire trigger point that has button-triggered content
+    screen.getByText('With Content').click();
+    await waitFor(() => {
+      expect(screen.getByTestId('has-user-triggered')).toHaveTextContent('yes');
+    });
+
+    // Fire trigger point that does NOT have button-triggered content
+    screen.getByText('Without Content').click();
+    await waitFor(() => {
+      expect(screen.getByTestId('has-user-triggered')).toHaveTextContent('no');
+    });
+
+    // Fire the first trigger point again — should go back to true
+    screen.getByText('With Content').click();
+    await waitFor(() => {
+      expect(screen.getByTestId('has-user-triggered')).toHaveTextContent('yes');
+    });
   });
 
   it('sets isContentLoading to true during session start and false after', async () => {
+    let resolveApi!: (value: any) => void;
+    const apiPromise = new Promise(r => { resolveApi = r; });
+
     const Consumer = () => {
       const {handleEvent, isContentLoading} = useWaveCx();
 
@@ -506,7 +777,7 @@ describe(WaveCxProvider.name, () => {
       <WaveCxProvider
         organizationCode={'org'}
         recordEvent={async () => {
-          await new Promise(resolve => setTimeout(resolve, 50));
+          await apiPromise;
           return {content: []};
         }}
       >
@@ -514,10 +785,13 @@ describe(WaveCxProvider.name, () => {
       </WaveCxProvider>
     );
 
-    // Should be loading initially
+    // Should be loading while API hasn't resolved
     await waitFor(() => {
       expect(screen.getByTestId('is-loading')).toBeChecked();
     });
+
+    // Resolve the API call
+    resolveApi(undefined);
 
     // Should finish loading
     await waitFor(() => {
