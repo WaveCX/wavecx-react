@@ -38,7 +38,10 @@ export function clientAgent() {
 }
 
 export const composeFireTargetedContentEventViaApi =
-  (dependencies: { apiBaseUrl: string; retryFn?: typeof import('./retry').retryWithBackoff }): FireTargetedContentEvent =>
+  (dependencies: {
+    apiBaseUrl: string;
+    retryFn?: typeof import('./retry').retryWithBackoff;
+  }): FireTargetedContentEvent =>
   async (options): Promise<{ content: TargetedContent[] }> => {
     const makeRequest = async () => {
       const response = await fetch(
@@ -82,4 +85,6 @@ export const composeFireTargetedContentEventViaApi =
     }
   };
 
-export const fireTargetedContentEventViaApi = composeFireTargetedContentEventViaApi({ apiBaseUrl: 'https://api.wavecx.com' });
+export const fireTargetedContentEventViaApi = composeFireTargetedContentEventViaApi({
+  apiBaseUrl: 'https://api.wavecx.com',
+});

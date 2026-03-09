@@ -1,4 +1,8 @@
-import {composeFireTargetedContentEventViaApi, type FireTargetedContentEvent, type TargetedContent} from './targeted-content';
+import {
+  composeFireTargetedContentEventViaApi,
+  type FireTargetedContentEvent,
+  type TargetedContent,
+} from './targeted-content';
 import {clearSessionToken, type InitiateSession, readSessionToken, storeSessionToken} from './sessions';
 import {retryWithBackoff, defaultRetryConfig, type RetryConfig} from './retry';
 import {
@@ -114,7 +118,7 @@ function getModalContainer(): HTMLElement {
   return modalContainer;
 }
 
-function renderModal(content: TargetedContent, debugLog: DebugLog, mockModeEnabled: boolean) {
+function renderModal(content: TargetedContent, debugLog: DebugLog) {
   const container = getModalContainer();
   container.innerHTML = '';
 
@@ -169,7 +173,15 @@ function renderModal(content: TargetedContent, debugLog: DebugLog, mockModeEnabl
   const iframe = document.createElement('iframe');
   iframe.title = 'Featured Content';
   iframe.src = content.viewUrl;
-  iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation');
+  const sandboxPermissions = [
+    'allow-scripts',
+    'allow-same-origin',
+    'allow-forms',
+    'allow-popups',
+    'allow-popups-to-escape-sandbox',
+    'allow-top-navigation-by-user-activation',
+  ].join(' ');
+  iframe.setAttribute('sandbox', sandboxPermissions);
   iframe.className = '__wcx_webview';
   iframe.style.display = 'none';
   iframe.addEventListener('load', () => {
@@ -373,9 +385,11 @@ export function createHandleEvent(config: CoreConfig): EventHandler {
           if (isValidContentUrl(content.viewUrl, mockModeConfig.enabled)) {
             debugLog('User-triggered content found', { triggerPoint: event.triggerPoint });
             currentDismissCallback = event.onContentDismissed;
-            renderModal(content, debugLog, mockModeConfig.enabled);
+            renderModal(content, debugLog);
           } else {
-            debugLog('User-triggered content rejected - invalid URL', { triggerPoint: event.triggerPoint, viewUrl: content.viewUrl });
+            debugLog('User-triggered content rejected - invalid URL', {
+              triggerPoint: event.triggerPoint, viewUrl: content.viewUrl,
+            });
           }
         } else {
           debugLog('No user-triggered content found', { triggerPoint: event.triggerPoint });
@@ -406,9 +420,11 @@ export function createHandleEvent(config: CoreConfig): EventHandler {
         if (popupContent) {
           if (isValidContentUrl(popupContent.viewUrl, mockModeConfig.enabled)) {
             debugLog('Popup content found for trigger point', { triggerPoint: event.triggerPoint });
-            renderModal(popupContent, debugLog, mockModeConfig.enabled);
+            renderModal(popupContent, debugLog);
           } else {
-            debugLog('Popup content rejected - invalid URL', { triggerPoint: event.triggerPoint, viewUrl: popupContent.viewUrl });
+            debugLog('Popup content rejected - invalid URL', {
+              triggerPoint: event.triggerPoint, viewUrl: popupContent.viewUrl,
+            });
           }
         }
 
