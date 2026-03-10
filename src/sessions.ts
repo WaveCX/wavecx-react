@@ -16,7 +16,11 @@ export const storeSessionToken = (token: SessionToken, expiresIn: number) => {
     sessionStorage.setItem(EXPIRATION_KEY, expirationDate.toISOString());
   } catch (error) {
     // Fallback to in-memory storage
-    console.warn('[WaveCx] sessionStorage unavailable (private browsing or blocked). Using in-memory storage - session will not persist across page reloads.', error);
+    console.warn(
+      '[WaveCx] sessionStorage unavailable (private browsing or blocked).'
+      + ' Using in-memory storage - session will not persist across page reloads.',
+      error,
+    );
     inMemoryToken = token;
     inMemoryExpiration = expirationDate;
   }
