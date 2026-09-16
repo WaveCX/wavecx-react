@@ -425,6 +425,14 @@ describe('core', () => {
       expect(document.querySelector('dialog')).toBeNull();
     });
 
+    it('announces dismiss-content support on the loaded URL without changing the cached one', async () => {
+      await openButtonTriggeredModal();
+
+      const iframe = document.querySelector('iframe') as HTMLIFrameElement;
+      expect(iframe.getAttribute('src')).toBe(`${viewUrl}?wcxCapabilities=dismiss-content`);
+      expect(getContentCache().map((c) => c.viewUrl)).toEqual([viewUrl]);
+    });
+
     it('removes content from the session cache when suppressForSession is set', async () => {
       await openButtonTriggeredModal();
       expect(hasContent('tp-1', 'button-triggered')).toBe(true);

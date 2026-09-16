@@ -4,7 +4,7 @@ import {
   type TargetedContent,
 } from './targeted-content';
 import {clearSessionToken, type InitiateSession, readSessionToken, storeSessionToken} from './sessions';
-import {expectedContentOrigin, isDismissContentMessage} from './content-messages';
+import {expectedContentOrigin, isDismissContentMessage, withContentCapabilities} from './content-messages';
 import {retryWithBackoff, defaultRetryConfig, type RetryConfig} from './retry';
 import {
   type MockModeConfig,
@@ -180,7 +180,7 @@ function renderModal(content: TargetedContent, debugLog: DebugLog) {
 
   const iframe = document.createElement('iframe');
   iframe.title = 'Featured Content';
-  iframe.src = content.viewUrl;
+  iframe.src = withContentCapabilities(content.viewUrl);
   const sandboxPermissions = [
     'allow-scripts',
     'allow-same-origin',
