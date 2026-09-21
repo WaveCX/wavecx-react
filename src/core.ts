@@ -4,6 +4,7 @@ import {
   type TargetedContent,
 } from './targeted-content';
 import {clearSessionToken, type InitiateSession, readSessionToken, storeSessionToken} from './sessions';
+import {expectedContentOrigin, isDismissContentMessage, withContentCapabilities} from './content-messages';
 import {retryWithBackoff, defaultRetryConfig, type RetryConfig} from './retry';
 import {
   type MockModeConfig,
@@ -108,6 +109,13 @@ export function getActiveTriggerPoint(): string | undefined {
 let modalContainer: HTMLElement | null = null;
 let currentDismissCallback: (() => void) | undefined = undefined;
 let cleanupOutsideClickListener: (() => void) | undefined = undefined;
+let cleanupContentMessageListener: (() => void) | undefined = undefined;
+
+function suppressContentForSession(content: TargetedContent) {
+  contentCache = contentCache.filter((c) => c.viewUrl !== content.viewUrl);
+  // Content identifies itself by view URL, which is unique per delivery. Removing only
+  // the dismissed entry leaves any sibling content for the same trigger point intact.
+}
 
 function getModalContainer(): HTMLElement {
   if (!modalContainer) {
@@ -172,7 +180,7 @@ function renderModal(content: TargetedContent, debugLog: DebugLog) {
 
   const iframe = document.createElement('iframe');
   iframe.title = 'Featured Content';
-  iframe.src = content.viewUrl;
+  iframe.src = withContentCapabilities(content.viewUrl);
   const sandboxPermissions = [
     'allow-scripts',
     'allow-same-origin',
@@ -209,6 +217,35 @@ function renderModal(content: TargetedContent, debugLog: DebugLog) {
     document.removeEventListener('mousedown', handleOutsideClick);
   };
 
+  // Close on request from the content itself (e.g. its "Don't Show Again" / "View Later" CTAs)
+  const contentOrigin = expectedContentOrigin(content.viewUrl);
+  const handleContentMessage = (e: MessageEvent) => {
+    // Identity of the sending window is the primary check: it proves the message came
+    // from this modal's frame rather than any other frame or script on the page.
+    if (e.source !== iframe.contentWindow) {
+      return;
+    }
+    if (contentOrigin !== undefined && e.origin !== contentOrigin) {
+      debugLog('Ignoring content message from unexpected origin', {
+        origin: e.origin, expectedOrigin: contentOrigin,
+      });
+      return;
+    }
+    if (!isDismissContentMessage(e.data)) {
+      return;
+    }
+    debugLog('Content requested dismissal', e.data);
+    if (e.data.suppressForSession) {
+      suppressContentForSession(content);
+    }
+    dialog.close();
+  };
+  cleanupContentMessageListener?.();
+  window.addEventListener('message', handleContentMessage);
+  cleanupContentMessageListener = () => {
+    window.removeEventListener('message', handleContentMessage);
+  };
+
   const handleCancel = (e: globalThis.Event) => {
     e.preventDefault();
     dialog.close();
@@ -228,6 +265,8 @@ function renderModal(content: TargetedContent, debugLog: DebugLog) {
 function dismissModal() {
   cleanupOutsideClickListener?.();
   cleanupOutsideClickListener = undefined;
+  cleanupContentMessageListener?.();
+  cleanupContentMessageListener = undefined;
   if (modalContainer) {
     modalContainer.remove();
     modalContainer = null;
@@ -462,6 +501,8 @@ export function resetCoreState(): void {
   listeners.clear();
   cleanupOutsideClickListener?.();
   cleanupOutsideClickListener = undefined;
+  cleanupContentMessageListener?.();
+  cleanupContentMessageListener = undefined;
   if (modalContainer) {
     modalContainer.remove();
     modalContainer = null;

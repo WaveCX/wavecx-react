@@ -30,4 +30,10 @@ export {
   generateMockContent,
 } from './mock-mode';
 
+export {
+  type ContentMessage,
+  type DismissContentMessage,
+  contentMessageSource,
+} from './content-messages';
+
 import './styles.css';

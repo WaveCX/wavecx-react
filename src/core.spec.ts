@@ -382,4 +382,169 @@ describe('core', () => {
       expect(dialog).toBeNull();
     });
   });
+
+  describe('content messages', () => {
+    const contentOrigin = 'https://mock.content.com';
+    const viewUrl = `${contentOrigin}/embed`;
+
+    const openButtonTriggeredModal = async (overrides: {content?: any[]} = {}) => {
+      const handleEvent = createHandleEvent({
+        organizationCode: 'org',
+        recordEvent: async () => ({
+          content: overrides.content
+            ?? [mockContent({triggerPoint: 'tp-1', presentationType: 'button-triggered', viewUrl})],
+        }),
+      });
+      await handleEvent({type: 'session-started', userId: 'user-1'});
+      await handleEvent({type: 'trigger-point', triggerPoint: 'tp-1'});
+      await handleEvent({type: 'user-triggered-content', triggerPoint: 'tp-1'});
+      return handleEvent;
+    };
+
+    const postFromContent = (data: unknown, options: {origin?: string; source?: any} = {}) => {
+      const iframe = document.querySelector('iframe') as HTMLIFrameElement;
+      window.dispatchEvent(new MessageEvent('message', {
+        data,
+        origin: options.origin ?? contentOrigin,
+        source: 'source' in options ? options.source : iframe.contentWindow,
+      }));
+    };
+
+    const dismissMessage = (extra: object = {}) => ({
+      source: 'wavecx',
+      type: 'dismiss-content',
+      ...extra,
+    });
+
+    it('closes the modal when content requests dismissal', async () => {
+      await openButtonTriggeredModal();
+      expect(document.querySelector('dialog')).not.toBeNull();
+
+      postFromContent(dismissMessage({reason: 'user-closed'}));
+
+      expect(document.querySelector('dialog')).toBeNull();
+    });
+
+    it('announces dismiss-content support on the loaded URL without changing the cached one', async () => {
+      await openButtonTriggeredModal();
+
+      const iframe = document.querySelector('iframe') as HTMLIFrameElement;
+      expect(iframe.getAttribute('src')).toBe(`${viewUrl}?wcxCapabilities=dismiss-content`);
+      expect(getContentCache().map((c) => c.viewUrl)).toEqual([viewUrl]);
+    });
+
+    it('removes content from the session cache when suppressForSession is set', async () => {
+      await openButtonTriggeredModal();
+      expect(hasContent('tp-1', 'button-triggered')).toBe(true);
+
+      postFromContent(dismissMessage({reason: 'no-show-again', suppressForSession: true}));
+
+      expect(hasContent('tp-1', 'button-triggered')).toBe(false);
+      expect(document.querySelector('dialog')).toBeNull();
+    });
+
+    it('keeps content in the session cache when suppressForSession is not set', async () => {
+      await openButtonTriggeredModal();
+
+      postFromContent(dismissMessage({reason: 'user-closed'}));
+
+      // A plain close (e.g. a "Got it" button) must not hide the entry point
+      expect(hasContent('tp-1', 'button-triggered')).toBe(true);
+    });
+
+    it('suppresses only the dismissed content, not siblings at the same trigger point', async () => {
+      const siblingUrl = `${contentOrigin}/embed-2`;
+      await openButtonTriggeredModal({
+        content: [
+          mockContent({triggerPoint: 'tp-1', presentationType: 'button-triggered', viewUrl}),
+          mockContent({triggerPoint: 'tp-1', presentationType: 'button-triggered', viewUrl: siblingUrl}),
+        ],
+      });
+
+      postFromContent(dismissMessage({reason: 'no-show-again', suppressForSession: true}));
+
+      expect(getContentCache().map((c) => c.viewUrl)).toEqual([siblingUrl]);
+    });
+
+    it('notifies subscribers so hosts re-render entry points', async () => {
+      await openButtonTriggeredModal();
+      const listener = vi.fn();
+      subscribe(listener);
+
+      postFromContent(dismissMessage({reason: 'no-show-again', suppressForSession: true}));
+
+      expect(listener).toHaveBeenCalled();
+    });
+
+    it('invokes the dismiss callback registered by the host', async () => {
+      const handleEvent = createHandleEvent({
+        organizationCode: 'org',
+        recordEvent: async () => ({
+          content: [mockContent({triggerPoint: 'tp-1', presentationType: 'button-triggered', viewUrl})],
+        }),
+      });
+      await handleEvent({type: 'session-started', userId: 'user-1'});
+      await handleEvent({type: 'trigger-point', triggerPoint: 'tp-1'});
+
+      const onContentDismissed = vi.fn();
+      await handleEvent({type: 'user-triggered-content', triggerPoint: 'tp-1', onContentDismissed});
+
+      postFromContent(dismissMessage({reason: 'no-show-again', suppressForSession: true}));
+
+      expect(onContentDismissed).toHaveBeenCalled();
+    });
+
+    it('ignores messages from an unexpected origin', async () => {
+      await openButtonTriggeredModal();
+
+      postFromContent(
+        dismissMessage({reason: 'no-show-again', suppressForSession: true}),
+        {origin: 'https://evil.example.com'},
+      );
+
+      expect(document.querySelector('dialog')).not.toBeNull();
+      expect(hasContent('tp-1', 'button-triggered')).toBe(true);
+    });
+
+    it('ignores messages from a window other than the content iframe', async () => {
+      await openButtonTriggeredModal();
+
+      postFromContent(
+        dismissMessage({reason: 'no-show-again', suppressForSession: true}),
+        {source: window},
+      );
+
+      expect(document.querySelector('dialog')).not.toBeNull();
+      expect(hasContent('tp-1', 'button-triggered')).toBe(true);
+    });
+
+    it('ignores messages that are not WaveCX dismiss messages', async () => {
+      await openButtonTriggeredModal();
+
+      postFromContent({type: 'dismiss-content'});
+      postFromContent({source: 'wavecx', type: 'something-else'});
+      postFromContent('not-an-object');
+      postFromContent(null);
+
+      expect(document.querySelector('dialog')).not.toBeNull();
+    });
+
+    it('stops listening once the modal is dismissed', async () => {
+      await openButtonTriggeredModal();
+      const iframe = document.querySelector('iframe') as HTMLIFrameElement;
+      const source = iframe.contentWindow;
+
+      // Close via the dialog itself, then replay a dismiss message from the dead frame
+      (document.querySelector('dialog') as HTMLDialogElement).close();
+      expect(hasContent('tp-1', 'button-triggered')).toBe(true);
+
+      window.dispatchEvent(new MessageEvent('message', {
+        data: dismissMessage({reason: 'no-show-again', suppressForSession: true}),
+        origin: contentOrigin,
+        source,
+      }));
+
+      expect(hasContent('tp-1', 'button-triggered')).toBe(true);
+    });
+  });
 });
