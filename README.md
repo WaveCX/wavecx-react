@@ -214,7 +214,9 @@ application tree.
 | contentFetchStrategy | ContentFetchStrategy                | **DEPRECATED** - no longer has any effect; content is always fetched at session start                                           | false    | session-start                                                   |
 | debugMode            | boolean                             | enables debug logging to console for troubleshooting                                                                            | false    | false                                                           |
 | retryConfig          | RetryConfig                         | configures retry behavior for API calls (maxAttempts, delays)                                                                   | false    | `{maxAttempts: 3, initialDelay: 1000, maxDelay: 32000, multiplier: 2.0}` |
+| requestTimeoutMs     | number                              | time limit for each API request attempt, in milliseconds; timed out attempts are retried; not used with a custom `recordEvent`   | false    | 10000                                                           |
 | mockModeConfig       | MockModeConfig                      | enables mock mode for testing without API calls, generating simulated content                                                   | false    | `{enabled: false}`                                              |
+| onError              | function (ErrorHandler)             | called when starting a session or fetching content fails, after retries are exhausted; see [Error Handling](#error-handling)     | false    |                                                                 |
 
 #### Types
 ```ts
@@ -255,6 +257,24 @@ type MockModeConfig = {
 type MockContentStrategy =
   | { type: 'all-trigger-points' }             // Generate content for any trigger point
   | { type: 'specific-trigger-points'; triggerPoints: string[] };  // Only specific points
+
+type ErrorHandler = (error: WaveCxError) => void | Promise<void>;
+
+class WaveCxError extends Error {
+  type: WaveCxErrorType;
+  message: string;
+  httpCode?: number;   // HTTP status, for SERVER_ERROR
+  cause?: unknown;     // the original error, when this wraps one
+}
+
+type WaveCxErrorType =
+  | 'NETWORK_UNAVAILABLE'
+  | 'NETWORK_TIMEOUT'
+  | 'NETWORK_ERROR'
+  | 'SERVER_ERROR'
+  | 'PARSE_ERROR'
+  | 'SSL_ERROR'
+  | 'UNKNOWN';
 ```
 
 ### Network Retry
@@ -262,6 +282,10 @@ The SDK automatically retries failed API calls using exponential backoff. By def
 - Retry up to 3 times
 - Use delays of 1s, 2s, 4s between attempts
 - Cap maximum delay at 32 seconds
+
+Each attempt times out after 10 seconds, which you can change with the `requestTimeoutMs` prop. Only failures that might succeed on another attempt
+are retried: network failures and timeouts, 5xx responses, and 408 and 429 responses. Other 4xx responses and unparseable responses are
+reported straight away.
 
 You can customize this behavior using the `retryConfig` prop:
 
@@ -278,6 +302,60 @@ You can customize this behavior using the `retryConfig` prop:
   <App />
 </WaveCxProvider>
 ```
+
+### Error Handling
+Pass an `onError` callback to be notified when the SDK fails to start a session or fetch
+content, for example to send failures to your own logging or monitoring:
+
+```tsx
+import {WaveCxProvider, type WaveCxError} from '@wavecx/wavecx-react';
+
+const handleWaveCxError = (error: WaveCxError) => {
+  logger.error('WaveCX error', {
+    type: error.type,
+    message: error.message,
+    httpCode: error.httpCode,
+  });
+};
+
+<WaveCxProvider organizationCode={'your-org-code'} onError={handleWaveCxError}>
+  <App />
+</WaveCxProvider>
+```
+
+`onError` is called once per failed session start, after loading has finished and after all
+[retries](#network-retry) are exhausted. A custom `recordEvent` is not retried, so its
+failures are reported on the first attempt. A session start issued while another is still
+loading is skipped and is not reported. The session continues without content, as it does
+without an `onError` callback. Errors thrown from `onError`, and rejections from an async
+`onError`, are caught and do not affect the SDK.
+
+If the API rejects a stored session token with a 401 or 403, the SDK discards it and starts a
+new session. Only a failure of that new session is reported.
+
+Session state is shared by every mounted `WaveCxProvider`, so each failure is reported to the
+`onError` of every mounted provider, whichever provider started the session. A handler passed
+to more than one provider is called once, as long as it is the same function, rather than a
+new inline function on each render.
+
+| type                  | when                                                                                   |
+|-----------------------|----------------------------------------------------------------------------------------|
+| `NETWORK_UNAVAILABLE` | the request failed while the browser reports being offline                             |
+| `NETWORK_ERROR`       | the request failed without a response (DNS, connection, CORS or TLS failure)           |
+| `NETWORK_TIMEOUT`     | the request, including reading its response, took longer than `requestTimeoutMs`       |
+| `SERVER_ERROR`        | the API responded with a non-2xx status; `httpCode` holds the status (e.g. 400, 404, 500) |
+| `PARSE_ERROR`         | the API response was received in full but could not be parsed                          |
+| `UNKNOWN`             | any other failure, including errors thrown by a custom `initiateSession` or `recordEvent`; `cause` holds the original error |
+
+The error types match `WaveCxErrorType` in the WaveCX Android SDK, so the same handling can
+be shared across platforms. Differences on the web:
+- `SSL_ERROR` is never reported. Browsers don't distinguish TLS failures from other network
+  failures, so these are reported as `NETWORK_ERROR`.
+- Errors are not reported in mock mode, for trigger points, or for content that fails to load
+  inside the modal. This matches the mobile SDKs.
+
+A custom `recordEvent` or `initiateSession` can throw a `WaveCxError` itself to control how
+its failures are reported.
 
 ### Mock Mode
 Mock mode allows you to test WaveCX integration without making real API calls. When enabled, the SDK generates simulated content locally for testing purposes.

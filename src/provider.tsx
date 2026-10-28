@@ -12,11 +12,13 @@ import {type FireTargetedContentEvent} from './targeted-content';
 import {type InitiateSession} from './sessions';
 import {type RetryConfig} from './retry';
 import {type MockModeConfig} from './mock-mode';
+import {type ErrorHandler} from './errors';
 import {
   type EventHandler,
   type ContentFetchStrategy,
   createHandleEvent,
   subscribe,
+  subscribeToErrors,
   hasContent,
   hasPopupContentForTriggerPoint,
   getContentCache,
@@ -80,13 +82,28 @@ export const WaveCxProvider = (props: {
   contentFetchStrategy?: ContentFetchStrategy;
   debugMode?: boolean;
   retryConfig?: RetryConfig;
+  /**
+   * Per-attempt limit on API requests, in milliseconds. A timed out attempt is retried
+   * according to retryConfig. Not used when a custom recordEvent is provided.
+   */
+  requestTimeoutMs?: number;
   mockModeConfig?: MockModeConfig;
+  /**
+   * Called when starting a session or fetching content fails, after retries are exhausted.
+   * Session state is shared, so every mounted provider's onError is called for each failure.
+   */
+  onError?: ErrorHandler;
 }) => {
   const [, forceRender] = useReducer((x: number) => x + 1, 0);
 
   useLayoutEffect(() => {
     return subscribe(forceRender);
   }, []);
+
+  const {onError} = props;
+  useLayoutEffect(() => {
+    return onError ? subscribeToErrors(onError) : undefined;
+  }, [onError]);
 
   // Create handleEvent once on mount. It reads shared module-level state
   // so it doesn't need to be recreated when props change.
@@ -100,6 +117,7 @@ export const WaveCxProvider = (props: {
       disablePopupContent: props.disablePopupContent,
       debugMode: props.debugMode,
       retryConfig: props.retryConfig,
+      requestTimeoutMs: props.requestTimeoutMs,
       mockModeConfig: props.mockModeConfig,
     });
   }

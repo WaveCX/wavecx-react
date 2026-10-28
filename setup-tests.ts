@@ -9,6 +9,9 @@ afterEach(() => {
 (function mockDialogApi() {
   // jsdom does not implement the native dialog API, so we mock it
 
+  // Specs that opt into the node environment have no DOM to mock
+  if (typeof (global as any).HTMLElement === 'undefined') return;
+
   if (typeof (global as any).HTMLDialogElement === 'undefined') {
     (global as any).HTMLDialogElement = class HTMLDialogElement extends (global as any).HTMLElement {
     };

@@ -1,7 +1,8 @@
-import {describe, it, expect, beforeAll, beforeEach, vi} from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 import {
   createHandleEvent,
   resetCoreState,
+  subscribeToErrors,
   getContentCache,
   getIsContentLoading,
   getActiveTriggerPoint,
@@ -9,7 +10,8 @@ import {
   hasPopupContentForTriggerPoint,
   subscribe,
 } from './core';
-import {clearSessionToken} from './sessions';
+import { clearSessionToken, readSessionToken, storeSessionToken } from './sessions';
+import { WaveCxError } from './errors';
 
 const setupMockHtmlDialogElement = () => {
   HTMLDialogElement.prototype.show = function mock(this: HTMLDialogElement) {
@@ -46,10 +48,10 @@ describe('core', () => {
       const content = [mockContent()];
       const handleEvent = createHandleEvent({
         organizationCode: 'org',
-        recordEvent: async () => ({content}),
+        recordEvent: async () => ({ content }),
       });
 
-      await handleEvent({type: 'session-started', userId: 'user-1'});
+      await handleEvent({ type: 'session-started', userId: 'user-1' });
 
       expect(getContentCache()).toEqual(content);
       expect(getIsContentLoading()).toBe(false);
@@ -58,13 +60,13 @@ describe('core', () => {
     it('clears content cache on session end', async () => {
       const handleEvent = createHandleEvent({
         organizationCode: 'org',
-        recordEvent: async () => ({content: [mockContent()]}),
+        recordEvent: async () => ({ content: [mockContent()] }),
       });
 
-      await handleEvent({type: 'session-started', userId: 'user-1'});
+      await handleEvent({ type: 'session-started', userId: 'user-1' });
       expect(getContentCache()).toHaveLength(1);
 
-      await handleEvent({type: 'session-ended'});
+      await handleEvent({ type: 'session-ended' });
       expect(getContentCache()).toHaveLength(0);
     });
 
@@ -76,11 +78,11 @@ describe('core', () => {
         organizationCode: 'org',
         recordEvent: async () => {
           await apiPromise;
-          return {content: []};
+          return { content: [] };
         },
       });
 
-      const promise = handleEvent({type: 'session-started', userId: 'user-1'});
+      const promise = handleEvent({ type: 'session-started', userId: 'user-1' });
       expect(getIsContentLoading()).toBe(true);
 
       resolveApi(undefined);
@@ -95,17 +97,17 @@ describe('core', () => {
         organizationCode: 'org',
         initiateSession: async (opts) => {
           calls.push(`initiateSession:${opts.userId}`);
-          return {sessionToken: 'custom-token', expiresIn: 3600};
+          return { sessionToken: 'custom-token', expiresIn: 3600 };
         },
         recordEvent: async (event) => {
           calls.push(`recordEvent:${event.type}:${('sessionToken' in event) ? event.sessionToken : 'none'}`);
           return {
-            content: [mockContent({triggerPoint: 'tp-1'})],
+            content: [mockContent({ triggerPoint: 'tp-1' })],
           };
         },
       });
 
-      await handleEvent({type: 'session-started', userId: 'user-1'});
+      await handleEvent({ type: 'session-started', userId: 'user-1' });
 
       expect(calls).toEqual([
         'initiateSession:user-1',
@@ -116,7 +118,6 @@ describe('core', () => {
 
     it('skips initiateSession when session token already exists', async () => {
       // Pre-store a session token
-      const {storeSessionToken} = await import('./sessions');
       storeSessionToken('existing-token', 3600);
 
       const calls: string[] = [];
@@ -125,15 +126,15 @@ describe('core', () => {
         organizationCode: 'org',
         initiateSession: async () => {
           calls.push('initiateSession');
-          return {sessionToken: 'new-token'};
+          return { sessionToken: 'new-token' };
         },
         recordEvent: async (event) => {
           calls.push(`recordEvent:${event.type}`);
-          return {content: []};
+          return { content: [] };
         },
       });
 
-      await handleEvent({type: 'session-started', userId: 'user-1'});
+      await handleEvent({ type: 'session-started', userId: 'user-1' });
 
       // Should have used session-refresh with existing token, NOT called initiateSession
       expect(calls).toEqual(['recordEvent:session-refresh']);
@@ -149,12 +150,12 @@ describe('core', () => {
         recordEvent: async () => {
           callCount++;
           await apiPromise;
-          return {content: []};
+          return { content: [] };
         },
       });
 
-      const promise = handleEvent({type: 'session-started', userId: 'user-1'});
-      await handleEvent({type: 'session-started', userId: 'user-1'});
+      const promise = handleEvent({ type: 'session-started', userId: 'user-1' });
+      await handleEvent({ type: 'session-started', userId: 'user-1' });
 
       resolveApi(undefined);
       await promise;
@@ -168,13 +169,13 @@ describe('core', () => {
         organizationCode: 'org',
         recordEvent: async () => ({
           content: [
-            mockContent({triggerPoint: 'tp-1', presentationType: 'popup'}),
-            mockContent({triggerPoint: 'tp-2', presentationType: 'button-triggered'}),
+            mockContent({ triggerPoint: 'tp-1', presentationType: 'popup' }),
+            mockContent({ triggerPoint: 'tp-2', presentationType: 'button-triggered' }),
           ],
         }),
       });
 
-      await handleEvent({type: 'session-started', userId: 'user-1'});
+      await handleEvent({ type: 'session-started', userId: 'user-1' });
 
       expect(hasContent('tp-1')).toBe(true);
       expect(hasContent('tp-1', 'popup')).toBe(true);
@@ -187,11 +188,11 @@ describe('core', () => {
       const handleEvent = createHandleEvent({
         organizationCode: 'org',
         recordEvent: async () => ({
-          content: [mockContent({triggerPoint: 'tp-1', presentationType: 'popup'})],
+          content: [mockContent({ triggerPoint: 'tp-1', presentationType: 'popup' })],
         }),
       });
 
-      await handleEvent({type: 'session-started', userId: 'user-1'});
+      await handleEvent({ type: 'session-started', userId: 'user-1' });
 
       expect(hasPopupContentForTriggerPoint('tp-1')).toBe(true);
       expect(hasPopupContentForTriggerPoint('tp-2')).toBe(false);
@@ -203,15 +204,15 @@ describe('core', () => {
       const handleEvent = createHandleEvent({
         organizationCode: 'org',
         recordEvent: async () => ({
-          content: [mockContent({triggerPoint: 'tp-1', presentationType: 'button-triggered'})],
+          content: [mockContent({ triggerPoint: 'tp-1', presentationType: 'button-triggered' })],
         }),
       });
 
-      await handleEvent({type: 'session-started', userId: 'user-1'});
-      await handleEvent({type: 'trigger-point', triggerPoint: 'tp-1'});
+      await handleEvent({ type: 'session-started', userId: 'user-1' });
+      await handleEvent({ type: 'trigger-point', triggerPoint: 'tp-1' });
 
       // Fire user-triggered-content WITHOUT a triggerPoint (v1.7.4 compat)
-      await handleEvent({type: 'user-triggered-content'});
+      await handleEvent({ type: 'user-triggered-content' });
 
       const dialog = document.querySelector('dialog');
       expect(dialog).not.toBeNull();
@@ -224,14 +225,14 @@ describe('core', () => {
       const handleEvent = createHandleEvent({
         organizationCode: 'org',
         recordEvent: async () => ({
-          content: [mockContent({triggerPoint: 'tp-1', presentationType: 'popup'})],
+          content: [mockContent({ triggerPoint: 'tp-1', presentationType: 'popup' })],
         }),
       });
 
-      await handleEvent({type: 'session-started', userId: 'user-1'});
+      await handleEvent({ type: 'session-started', userId: 'user-1' });
       expect(hasContent('tp-1', 'popup')).toBe(true);
 
-      await handleEvent({type: 'trigger-point', triggerPoint: 'tp-1'});
+      await handleEvent({ type: 'trigger-point', triggerPoint: 'tp-1' });
       expect(hasContent('tp-1', 'popup')).toBe(false);
     });
 
@@ -239,29 +240,29 @@ describe('core', () => {
       const handleEvent = createHandleEvent({
         organizationCode: 'org',
         recordEvent: async () => ({
-          content: [mockContent({triggerPoint: 'tp-1', presentationType: 'button-triggered'})],
+          content: [mockContent({ triggerPoint: 'tp-1', presentationType: 'button-triggered' })],
         }),
       });
 
-      await handleEvent({type: 'session-started', userId: 'user-1'});
-      await handleEvent({type: 'trigger-point', triggerPoint: 'tp-1'});
+      await handleEvent({ type: 'session-started', userId: 'user-1' });
+      await handleEvent({ type: 'trigger-point', triggerPoint: 'tp-1' });
       expect(hasContent('tp-1', 'button-triggered')).toBe(true);
     });
 
     it('tracks active trigger point', async () => {
       const handleEvent = createHandleEvent({
         organizationCode: 'org',
-        recordEvent: async () => ({content: []}),
+        recordEvent: async () => ({ content: [] }),
       });
 
-      await handleEvent({type: 'session-started', userId: 'user-1'});
+      await handleEvent({ type: 'session-started', userId: 'user-1' });
 
       expect(getActiveTriggerPoint()).toBeUndefined();
 
-      await handleEvent({type: 'trigger-point', triggerPoint: 'tp-1'});
+      await handleEvent({ type: 'trigger-point', triggerPoint: 'tp-1' });
       expect(getActiveTriggerPoint()).toBe('tp-1');
 
-      await handleEvent({type: 'trigger-point', triggerPoint: 'tp-2'});
+      await handleEvent({ type: 'trigger-point', triggerPoint: 'tp-2' });
       expect(getActiveTriggerPoint()).toBe('tp-2');
     });
 
@@ -269,19 +270,19 @@ describe('core', () => {
       const handleEvent = createHandleEvent({
         organizationCode: 'org',
         recordEvent: async () => ({
-          content: [mockContent({triggerPoint: 'tp-1', presentationType: 'popup'})],
+          content: [mockContent({ triggerPoint: 'tp-1', presentationType: 'popup' })],
         }),
       });
 
-      await handleEvent({type: 'session-started', userId: 'user-1'});
-      await handleEvent({type: 'trigger-point', triggerPoint: 'tp-1'});
+      await handleEvent({ type: 'session-started', userId: 'user-1' });
+      await handleEvent({ type: 'trigger-point', triggerPoint: 'tp-1' });
 
       const dialog = document.querySelector('dialog');
       expect(dialog).not.toBeNull();
       expect(dialog!.open).toBe(true);
 
       // Fire same trigger point again (simulates strict mode double-invoke)
-      await handleEvent({type: 'trigger-point', triggerPoint: 'tp-1'});
+      await handleEvent({ type: 'trigger-point', triggerPoint: 'tp-1' });
 
       // Dialog should still be there (not dismissed)
       const dialogAfter = document.querySelector('dialog');
@@ -294,12 +295,12 @@ describe('core', () => {
         organizationCode: 'org',
         disablePopupContent: true,
         recordEvent: async () => ({
-          content: [mockContent({triggerPoint: 'tp-1', presentationType: 'popup'})],
+          content: [mockContent({ triggerPoint: 'tp-1', presentationType: 'popup' })],
         }),
       });
 
-      await handleEvent({type: 'session-started', userId: 'user-1'});
-      await handleEvent({type: 'trigger-point', triggerPoint: 'tp-1'});
+      await handleEvent({ type: 'session-started', userId: 'user-1' });
+      await handleEvent({ type: 'trigger-point', triggerPoint: 'tp-1' });
       expect(hasContent('tp-1', 'popup')).toBe(true);
     });
   });
@@ -314,15 +315,15 @@ describe('core', () => {
         recordEvent: async () => {
           await apiPromise;
           return {
-            content: [mockContent({triggerPoint: 'tp-1', presentationType: 'popup'})],
+            content: [mockContent({ triggerPoint: 'tp-1', presentationType: 'popup' })],
           };
         },
       });
 
-      const sessionPromise = handleEvent({type: 'session-started', userId: 'user-1'});
+      const sessionPromise = handleEvent({ type: 'session-started', userId: 'user-1' });
 
       // Fire trigger point while loading — should be queued
-      await handleEvent({type: 'trigger-point', triggerPoint: 'tp-1'});
+      await handleEvent({ type: 'trigger-point', triggerPoint: 'tp-1' });
       expect(getActiveTriggerPoint()).toBeUndefined();
 
       resolveApi(undefined);
@@ -340,10 +341,10 @@ describe('core', () => {
 
       const handleEvent = createHandleEvent({
         organizationCode: 'org',
-        recordEvent: async () => ({content: []}),
+        recordEvent: async () => ({ content: [] }),
       });
 
-      await handleEvent({type: 'session-started', userId: 'user-1'});
+      await handleEvent({ type: 'session-started', userId: 'user-1' });
 
       expect(listener).toHaveBeenCalled();
       unsubscribe();
@@ -356,10 +357,10 @@ describe('core', () => {
 
       const handleEvent = createHandleEvent({
         organizationCode: 'org',
-        recordEvent: async () => ({content: []}),
+        recordEvent: async () => ({ content: [] }),
       });
 
-      await handleEvent({type: 'session-started', userId: 'user-1'});
+      await handleEvent({ type: 'session-started', userId: 'user-1' });
 
       expect(listener).not.toHaveBeenCalled();
     });
@@ -370,12 +371,12 @@ describe('core', () => {
       const handleEvent = createHandleEvent({
         organizationCode: 'org',
         recordEvent: async () => ({
-          content: [mockContent({triggerPoint: 'tp-1', viewUrl: 'javascript:alert(1)'})],
+          content: [mockContent({ triggerPoint: 'tp-1', viewUrl: 'javascript:alert(1)' })],
         }),
       });
 
-      await handleEvent({type: 'session-started', userId: 'user-1'});
-      await handleEvent({type: 'trigger-point', triggerPoint: 'tp-1'});
+      await handleEvent({ type: 'session-started', userId: 'user-1' });
+      await handleEvent({ type: 'trigger-point', triggerPoint: 'tp-1' });
 
       // Modal should not have been rendered
       const dialog = document.querySelector('dialog');
@@ -387,21 +388,21 @@ describe('core', () => {
     const contentOrigin = 'https://mock.content.com';
     const viewUrl = `${contentOrigin}/embed`;
 
-    const openButtonTriggeredModal = async (overrides: {content?: any[]} = {}) => {
+    const openButtonTriggeredModal = async (overrides: { content?: any[] } = {}) => {
       const handleEvent = createHandleEvent({
         organizationCode: 'org',
         recordEvent: async () => ({
           content: overrides.content
-            ?? [mockContent({triggerPoint: 'tp-1', presentationType: 'button-triggered', viewUrl})],
+            ?? [mockContent({ triggerPoint: 'tp-1', presentationType: 'button-triggered', viewUrl })],
         }),
       });
-      await handleEvent({type: 'session-started', userId: 'user-1'});
-      await handleEvent({type: 'trigger-point', triggerPoint: 'tp-1'});
-      await handleEvent({type: 'user-triggered-content', triggerPoint: 'tp-1'});
+      await handleEvent({ type: 'session-started', userId: 'user-1' });
+      await handleEvent({ type: 'trigger-point', triggerPoint: 'tp-1' });
+      await handleEvent({ type: 'user-triggered-content', triggerPoint: 'tp-1' });
       return handleEvent;
     };
 
-    const postFromContent = (data: unknown, options: {origin?: string; source?: any} = {}) => {
+    const postFromContent = (data: unknown, options: { origin?: string; source?: any } = {}) => {
       const iframe = document.querySelector('iframe') as HTMLIFrameElement;
       window.dispatchEvent(new MessageEvent('message', {
         data,
@@ -420,7 +421,7 @@ describe('core', () => {
       await openButtonTriggeredModal();
       expect(document.querySelector('dialog')).not.toBeNull();
 
-      postFromContent(dismissMessage({reason: 'user-closed'}));
+      postFromContent(dismissMessage({ reason: 'user-closed' }));
 
       expect(document.querySelector('dialog')).toBeNull();
     });
@@ -437,7 +438,7 @@ describe('core', () => {
       await openButtonTriggeredModal();
       expect(hasContent('tp-1', 'button-triggered')).toBe(true);
 
-      postFromContent(dismissMessage({reason: 'no-show-again', suppressForSession: true}));
+      postFromContent(dismissMessage({ reason: 'no-show-again', suppressForSession: true }));
 
       expect(hasContent('tp-1', 'button-triggered')).toBe(false);
       expect(document.querySelector('dialog')).toBeNull();
@@ -446,7 +447,7 @@ describe('core', () => {
     it('keeps content in the session cache when suppressForSession is not set', async () => {
       await openButtonTriggeredModal();
 
-      postFromContent(dismissMessage({reason: 'user-closed'}));
+      postFromContent(dismissMessage({ reason: 'user-closed' }));
 
       // A plain close (e.g. a "Got it" button) must not hide the entry point
       expect(hasContent('tp-1', 'button-triggered')).toBe(true);
@@ -456,12 +457,12 @@ describe('core', () => {
       const siblingUrl = `${contentOrigin}/embed-2`;
       await openButtonTriggeredModal({
         content: [
-          mockContent({triggerPoint: 'tp-1', presentationType: 'button-triggered', viewUrl}),
-          mockContent({triggerPoint: 'tp-1', presentationType: 'button-triggered', viewUrl: siblingUrl}),
+          mockContent({ triggerPoint: 'tp-1', presentationType: 'button-triggered', viewUrl }),
+          mockContent({ triggerPoint: 'tp-1', presentationType: 'button-triggered', viewUrl: siblingUrl }),
         ],
       });
 
-      postFromContent(dismissMessage({reason: 'no-show-again', suppressForSession: true}));
+      postFromContent(dismissMessage({ reason: 'no-show-again', suppressForSession: true }));
 
       expect(getContentCache().map((c) => c.viewUrl)).toEqual([siblingUrl]);
     });
@@ -471,7 +472,7 @@ describe('core', () => {
       const listener = vi.fn();
       subscribe(listener);
 
-      postFromContent(dismissMessage({reason: 'no-show-again', suppressForSession: true}));
+      postFromContent(dismissMessage({ reason: 'no-show-again', suppressForSession: true }));
 
       expect(listener).toHaveBeenCalled();
     });
@@ -480,16 +481,16 @@ describe('core', () => {
       const handleEvent = createHandleEvent({
         organizationCode: 'org',
         recordEvent: async () => ({
-          content: [mockContent({triggerPoint: 'tp-1', presentationType: 'button-triggered', viewUrl})],
+          content: [mockContent({ triggerPoint: 'tp-1', presentationType: 'button-triggered', viewUrl })],
         }),
       });
-      await handleEvent({type: 'session-started', userId: 'user-1'});
-      await handleEvent({type: 'trigger-point', triggerPoint: 'tp-1'});
+      await handleEvent({ type: 'session-started', userId: 'user-1' });
+      await handleEvent({ type: 'trigger-point', triggerPoint: 'tp-1' });
 
       const onContentDismissed = vi.fn();
-      await handleEvent({type: 'user-triggered-content', triggerPoint: 'tp-1', onContentDismissed});
+      await handleEvent({ type: 'user-triggered-content', triggerPoint: 'tp-1', onContentDismissed });
 
-      postFromContent(dismissMessage({reason: 'no-show-again', suppressForSession: true}));
+      postFromContent(dismissMessage({ reason: 'no-show-again', suppressForSession: true }));
 
       expect(onContentDismissed).toHaveBeenCalled();
     });
@@ -498,8 +499,8 @@ describe('core', () => {
       await openButtonTriggeredModal();
 
       postFromContent(
-        dismissMessage({reason: 'no-show-again', suppressForSession: true}),
-        {origin: 'https://evil.example.com'},
+        dismissMessage({ reason: 'no-show-again', suppressForSession: true }),
+        { origin: 'https://evil.example.com' },
       );
 
       expect(document.querySelector('dialog')).not.toBeNull();
@@ -510,8 +511,8 @@ describe('core', () => {
       await openButtonTriggeredModal();
 
       postFromContent(
-        dismissMessage({reason: 'no-show-again', suppressForSession: true}),
-        {source: window},
+        dismissMessage({ reason: 'no-show-again', suppressForSession: true }),
+        { source: window },
       );
 
       expect(document.querySelector('dialog')).not.toBeNull();
@@ -521,8 +522,8 @@ describe('core', () => {
     it('ignores messages that are not WaveCX dismiss messages', async () => {
       await openButtonTriggeredModal();
 
-      postFromContent({type: 'dismiss-content'});
-      postFromContent({source: 'wavecx', type: 'something-else'});
+      postFromContent({ type: 'dismiss-content' });
+      postFromContent({ source: 'wavecx', type: 'something-else' });
       postFromContent('not-an-object');
       postFromContent(null);
 
@@ -539,12 +540,312 @@ describe('core', () => {
       expect(hasContent('tp-1', 'button-triggered')).toBe(true);
 
       window.dispatchEvent(new MessageEvent('message', {
-        data: dismissMessage({reason: 'no-show-again', suppressForSession: true}),
+        data: dismissMessage({ reason: 'no-show-again', suppressForSession: true }),
         origin: contentOrigin,
         source,
       }));
 
       expect(hasContent('tp-1', 'button-triggered')).toBe(true);
+    });
+  });
+
+  describe('error reporting', () => {
+    const serverError = () => new WaveCxError({
+      type: 'SERVER_ERROR', message: 'API request failed with status 500', httpCode: 500,
+    });
+
+    it('reports a failed session start', async () => {
+      const onError = vi.fn();
+      subscribeToErrors(onError);
+      const error = serverError();
+      const handleEvent = createHandleEvent({
+        organizationCode: 'org',
+        recordEvent: async () => { throw error; },
+      });
+
+      await handleEvent({ type: 'session-started', userId: 'user-1' });
+
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect(onError).toHaveBeenCalledWith(error);
+    });
+
+    it('reports a failed session refresh', async () => {
+      storeSessionToken('existing-token', 3600);
+      const onError = vi.fn();
+      subscribeToErrors(onError);
+      const handleEvent = createHandleEvent({
+        organizationCode: 'org',
+        recordEvent: async () => { throw serverError(); },
+      });
+
+      await handleEvent({ type: 'session-started', userId: 'user-1' });
+
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect(onError.mock.calls[0][0]).toMatchObject({ type: 'SERVER_ERROR', httpCode: 500 });
+    });
+
+    it('reports a failed custom session initiation as UNKNOWN with the original error', async () => {
+      const onError = vi.fn();
+      subscribeToErrors(onError);
+      const original = new Error('auth service down');
+      const handleEvent = createHandleEvent({
+        organizationCode: 'org',
+        initiateSession: async () => { throw original; },
+        recordEvent: async () => ({ content: [] }),
+      });
+
+      await handleEvent({ type: 'session-started', userId: 'user-1' });
+
+      expect(onError).toHaveBeenCalledTimes(1);
+      const reported = onError.mock.calls[0][0];
+      expect(reported).toBeInstanceOf(WaveCxError);
+      expect(reported).toMatchObject({ type: 'UNKNOWN', message: 'auth service down', cause: original });
+    });
+
+    it('reports a failed content fetch after custom session initiation', async () => {
+      const onError = vi.fn();
+      subscribeToErrors(onError);
+      const handleEvent = createHandleEvent({
+        organizationCode: 'org',
+        initiateSession: async () => ({ sessionToken: 'token' }),
+        recordEvent: async () => { throw serverError(); },
+      });
+
+      await handleEvent({ type: 'session-started', userId: 'user-1' });
+
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect(onError.mock.calls[0][0]).toMatchObject({ type: 'SERVER_ERROR' });
+    });
+
+    it('applies requestTimeoutMs to the default API requests', async () => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation((_, init) => new Promise<never>((_, reject) => {
+        init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+      }));
+      const onError = vi.fn();
+      subscribeToErrors(onError);
+      const handleEvent = createHandleEvent({
+        organizationCode: 'org',
+        requestTimeoutMs: 20,
+        retryConfig: { maxAttempts: 1, initialDelay: 1, maxDelay: 1, multiplier: 1 },
+      });
+
+      await handleEvent({ type: 'session-started', userId: 'user-1' });
+
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect(onError.mock.calls[0][0]).toMatchObject({ type: 'NETWORK_TIMEOUT' });
+      fetchSpy.mockRestore();
+    });
+
+    it('does not report successful sessions, trigger points or mock mode', async () => {
+      const onError = vi.fn();
+      subscribeToErrors(onError);
+      const handleEvent = createHandleEvent({
+        organizationCode: 'org',
+        recordEvent: async () => ({ content: [mockContent()] }),
+      });
+      await handleEvent({ type: 'session-started', userId: 'user-1' });
+      await handleEvent({ type: 'trigger-point', triggerPoint: 'tp' });
+      await handleEvent({ type: 'trigger-point', triggerPoint: 'no-content' });
+      await handleEvent({ type: 'session-ended' });
+
+      resetCoreState();
+      subscribeToErrors(onError);
+      const handleMockEvent = createHandleEvent({
+        organizationCode: 'org',
+        mockModeConfig: { enabled: true },
+      });
+      await handleMockEvent({ type: 'session-started', userId: 'user-1' });
+
+      expect(onError).not.toHaveBeenCalled();
+    });
+
+    it('keeps working when the onError callback throws', async () => {
+      let attempts = 0;
+      const content = [mockContent()];
+      subscribeToErrors(() => { throw new Error('logger broke'); });
+      const handleEvent = createHandleEvent({
+        organizationCode: 'org',
+        recordEvent: async () => {
+          attempts++;
+          if (attempts === 1) throw serverError();
+          return { content };
+        },
+      });
+
+      await expect(handleEvent({ type: 'session-started', userId: 'user-1' })).resolves.toBeUndefined();
+      expect(getIsContentLoading()).toBe(false);
+
+      clearSessionToken();
+      await handleEvent({ type: 'session-started', userId: 'user-1' });
+      expect(getContentCache()).toEqual(content);
+    });
+
+    it('reports after loading has finished, so onError can retry the session start', async () => {
+      let attempts = 0;
+      const content = [mockContent()];
+      let retry: void | Promise<void> | undefined;
+      const handleEvent = createHandleEvent({
+        organizationCode: 'org',
+        recordEvent: async () => {
+          attempts++;
+          if (attempts === 1) throw serverError();
+          return { content };
+        },
+      });
+      subscribeToErrors(() => {
+        expect(getIsContentLoading()).toBe(false);
+        retry = handleEvent({ type: 'session-started', userId: 'user-1' });
+      });
+
+      await handleEvent({ type: 'session-started', userId: 'user-1' });
+      await retry;
+
+      expect(attempts).toBe(2);
+      expect(getContentCache()).toEqual(content);
+    });
+
+    it('reports errors that cannot be converted to a string', async () => {
+      const onError = vi.fn();
+      subscribeToErrors(onError);
+      const unprintable = Object.create(null);
+      const handleEvent = createHandleEvent({
+        organizationCode: 'org',
+        recordEvent: async () => { throw unprintable; },
+      });
+
+      await handleEvent({ type: 'session-started', userId: 'user-1' });
+
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect(onError.mock.calls[0][0]).toMatchObject({ type: 'UNKNOWN', cause: unprintable });
+    });
+
+    it('catches rejections from an async onError callback', async () => {
+      const unhandled = vi.fn();
+      process.on('unhandledRejection', unhandled);
+      try {
+        subscribeToErrors(async () => { throw new Error('logger broke'); });
+        const handleEvent = createHandleEvent({
+          organizationCode: 'org',
+          recordEvent: async () => { throw serverError(); },
+        });
+
+        await handleEvent({ type: 'session-started', userId: 'user-1' });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(unhandled).not.toHaveBeenCalled();
+      } finally {
+        process.off('unhandledRejection', unhandled);
+      }
+    });
+
+    it.each([401, 403])('starts a new session when the stored token is rejected with a %d', async (httpCode) => {
+      storeSessionToken('rejected-token', 3600);
+      const onError = vi.fn();
+      subscribeToErrors(onError);
+      const content = [mockContent()];
+      const requests: Array<{ type: string; sessionToken?: string }> = [];
+      const handleEvent = createHandleEvent({
+        organizationCode: 'org',
+        recordEvent: async (options) => {
+          requests.push({ type: options.type, sessionToken: options.sessionToken });
+          if (options.type === 'session-refresh') {
+            throw new WaveCxError({ type: 'SERVER_ERROR', message: 'rejected', httpCode });
+          }
+          return { sessionToken: 'new-token', content };
+        },
+      });
+
+      await handleEvent({ type: 'session-started', userId: 'user-1' });
+
+      expect(requests).toEqual([
+        { type: 'session-refresh', sessionToken: 'rejected-token' },
+        { type: 'session-started', sessionToken: undefined },
+      ]);
+      expect(readSessionToken()).toBe('new-token');
+      expect(getContentCache()).toEqual(content);
+      expect(onError).not.toHaveBeenCalled();
+    });
+
+    it('keeps the stored token when a refresh fails for another reason', async () => {
+      storeSessionToken('existing-token', 3600);
+      const handleEvent = createHandleEvent({
+        organizationCode: 'org',
+        recordEvent: async () => { throw serverError(); },
+      });
+
+      await handleEvent({ type: 'session-started', userId: 'user-1' });
+
+      expect(readSessionToken()).toBe('existing-token');
+    });
+
+    it('reports to every subscribed handler, whichever handleEvent hit the failure', async () => {
+      const first = vi.fn();
+      const second = vi.fn();
+      subscribeToErrors(first);
+      subscribeToErrors(second);
+      createHandleEvent({ organizationCode: 'org', recordEvent: async () => ({ content: [] }) });
+      const failing = createHandleEvent({
+        organizationCode: 'org',
+        recordEvent: async () => { throw serverError(); },
+      });
+
+      await failing({ type: 'session-started', userId: 'user-1' });
+
+      expect(first).toHaveBeenCalledTimes(1);
+      expect(second).toHaveBeenCalledTimes(1);
+    });
+
+    it('calls a handler subscribed twice once, until both subscriptions end', async () => {
+      const onError = vi.fn();
+      subscribeToErrors(onError);
+      const unsubscribeSecond = subscribeToErrors(onError);
+      const handleEvent = createHandleEvent({
+        organizationCode: 'org',
+        recordEvent: async () => { throw serverError(); },
+      });
+
+      await handleEvent({ type: 'session-started', userId: 'user-1' });
+      expect(onError).toHaveBeenCalledTimes(1);
+
+      unsubscribeSecond();
+      await handleEvent({ type: 'session-started', userId: 'user-1' });
+      expect(onError).toHaveBeenCalledTimes(2);
+    });
+
+    it('reports a WaveCxError from the other bundle as it was thrown', async () => {
+      const onError = vi.fn();
+      subscribeToErrors(onError);
+      const foreign = Object.assign(new Error('forbidden'), {
+        name: 'WaveCxError', type: 'SERVER_ERROR', httpCode: 400,
+      });
+      const handleEvent = createHandleEvent({
+        organizationCode: 'org',
+        recordEvent: async () => { throw foreign; },
+      });
+
+      await handleEvent({ type: 'session-started', userId: 'user-1' });
+
+      expect(onError).toHaveBeenCalledWith(foreign);
+    });
+
+    it('still processes queued trigger points after a failed session start', async () => {
+      let rejectApi!: (error: unknown) => void;
+      const onError = vi.fn();
+      subscribeToErrors(onError);
+      const handleEvent = createHandleEvent({
+        organizationCode: 'org',
+        recordEvent: () => new Promise((_, reject) => { rejectApi = reject; }),
+      });
+
+      const sessionStart = handleEvent({ type: 'session-started', userId: 'user-1' });
+      await handleEvent({ type: 'trigger-point', triggerPoint: 'tp' });
+      rejectApi(serverError());
+      await sessionStart;
+
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect(getActiveTriggerPoint()).toBe('tp');
+      expect(document.querySelector('dialog')).toBeNull();
     });
   });
 });

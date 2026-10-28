@@ -1,3 +1,5 @@
+import {isRetryable} from './errors';
+
 export type RetryConfig = {
   maxAttempts: number;
   initialDelay: number; // milliseconds
@@ -35,6 +37,11 @@ export async function retryWithBackoff<T>(
       return await fn();
     } catch (error) {
       lastError = error;
+
+      if (!isRetryable(error)) {
+        debugLog?.(`Attempt ${attempt} failed with an error that won't succeed on retry`, { error });
+        throw error;
+      }
 
       if (attempt < config.maxAttempts) {
         debugLog?.(`Attempt ${attempt} failed, retrying in ${delay}ms`, { error });
