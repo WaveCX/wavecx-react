@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { retryWithBackoff, defaultRetryConfig, type RetryConfig } from './retry';
+import { WaveCxError } from './errors';
 
 describe('retryWithBackoff', () => {
   beforeEach(() => {
@@ -217,6 +218,41 @@ describe('retryWithBackoff', () => {
     expect(caughtError).toBeInstanceOf(CustomError);
     expect((caughtError as CustomError).code).toBe(404);
     expect((caughtError as CustomError).message).toBe('Custom error');
+  });
+
+  it.each([
+    ['a 400', new WaveCxError({type: 'SERVER_ERROR', message: 'bad request', httpCode: 400})],
+    ['a 401', new WaveCxError({type: 'SERVER_ERROR', message: 'unauthorized', httpCode: 401})],
+    ['a 404', new WaveCxError({type: 'SERVER_ERROR', message: 'not found', httpCode: 404})],
+    ['a parse error', new WaveCxError({type: 'PARSE_ERROR', message: 'bad json'})],
+    [
+      'a WaveCxError from the other bundle',
+      Object.assign(new Error('bad request'), {name: 'WaveCxError', type: 'SERVER_ERROR', httpCode: 400}),
+    ],
+  ])('does not retry %s', async (_, error) => {
+    const fn = vi.fn().mockRejectedValue(error);
+
+    const promise = retryWithBackoff(fn).catch((e) => e);
+    await vi.runAllTimersAsync();
+
+    expect(await promise).toBe(error);
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['a 500', new WaveCxError({type: 'SERVER_ERROR', message: 'server error', httpCode: 500})],
+    ['a 408', new WaveCxError({type: 'SERVER_ERROR', message: 'timeout', httpCode: 408})],
+    ['a 429', new WaveCxError({type: 'SERVER_ERROR', message: 'rate limited', httpCode: 429})],
+    ['a network error', new WaveCxError({type: 'NETWORK_ERROR', message: 'failed'})],
+    ['a network outage', new WaveCxError({type: 'NETWORK_UNAVAILABLE', message: 'offline'})],
+  ])('retries %s', async (_, error) => {
+    const fn = vi.fn().mockRejectedValue(error);
+
+    const promise = retryWithBackoff(fn).catch((e) => e);
+    await vi.runAllTimersAsync();
+
+    expect(await promise).toBe(error);
+    expect(fn).toHaveBeenCalledTimes(defaultRetryConfig.maxAttempts);
   });
 
   it('handles default retry config values correctly', () => {

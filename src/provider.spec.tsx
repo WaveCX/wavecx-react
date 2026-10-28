@@ -1,5 +1,5 @@
 import {useEffect} from 'react';
-import {describe, it, expect, beforeAll, beforeEach} from 'vitest';
+import {describe, it, expect, beforeAll, beforeEach, vi} from 'vitest';
 import {render, screen, waitFor, type waitForOptions} from '@testing-library/react';
 import '@testing-library/jest-dom/vitest'
 
@@ -694,5 +694,100 @@ describe(WaveCxProvider.name, () => {
     await waitFor(() => {
       expect(screen.getByTestId('is-loading')).not.toBeChecked();
     });
+  });
+
+  it('reports session start failures to the latest onError prop', async () => {
+    const firstOnError = vi.fn();
+    const latestOnError = vi.fn();
+    let rejectApi: ((error: unknown) => void) | undefined;
+
+    const SessionStarter = () => {
+      const {handleEvent} = useWaveCx();
+      useEffect(() => {
+        handleEvent({type: 'session-started', userId: 'user-1'});
+      }, []);
+      return null;
+    };
+
+    const recordEvent = () => new Promise<never>((_, reject) => { rejectApi = reject; });
+    const {rerender} = render(
+      <WaveCxProvider organizationCode={'org'} recordEvent={recordEvent} onError={firstOnError}>
+        <SessionStarter/>
+      </WaveCxProvider>
+    );
+    rerender(
+      <WaveCxProvider organizationCode={'org'} recordEvent={recordEvent} onError={latestOnError}>
+        <SessionStarter/>
+      </WaveCxProvider>
+    );
+
+    await waitFor(() => expect(rejectApi).toBeDefined());
+    rejectApi!(new Error('boom'));
+
+    await waitFor(() => {
+      expect(latestOnError).toHaveBeenCalledWith(expect.objectContaining({type: 'UNKNOWN', message: 'boom'}));
+    });
+    expect(firstOnError).not.toHaveBeenCalled();
+  });
+
+  it('reports failures to the onError of every mounted provider', async () => {
+    const outerOnError = vi.fn();
+    const innerOnError = vi.fn();
+
+    const SessionStarter = () => {
+      const {handleEvent} = useWaveCx();
+      useEffect(() => {
+        handleEvent({type: 'session-started', userId: 'user-1'});
+      }, []);
+      return null;
+    };
+
+    render(
+      <WaveCxProvider organizationCode={'org'} onError={outerOnError}>
+        <WaveCxProvider
+          organizationCode={'org'}
+          recordEvent={async () => { throw new Error('boom'); }}
+          onError={innerOnError}
+        >
+          <SessionStarter/>
+        </WaveCxProvider>
+      </WaveCxProvider>
+    );
+
+    await waitFor(() => {
+      expect(outerOnError).toHaveBeenCalledWith(expect.objectContaining({message: 'boom'}));
+    });
+    expect(innerOnError).toHaveBeenCalledTimes(1);
+  });
+
+  it('stops reporting to a provider once it unmounts', async () => {
+    const onError = vi.fn();
+    let rejectApi: ((error: unknown) => void) | undefined;
+
+    const SessionStarter = () => {
+      const {handleEvent} = useWaveCx();
+      useEffect(() => {
+        handleEvent({type: 'session-started', userId: 'user-1'});
+      }, []);
+      return null;
+    };
+
+    const recordEvent = () => new Promise<never>((_, reject) => { rejectApi = reject; });
+    const {rerender} = render(
+      <WaveCxProvider organizationCode={'org'} recordEvent={recordEvent}>
+        <WaveCxProvider organizationCode={'org'} onError={onError}/>
+        <SessionStarter/>
+      </WaveCxProvider>
+    );
+    rerender(
+      <WaveCxProvider organizationCode={'org'} recordEvent={recordEvent}>
+        <SessionStarter/>
+      </WaveCxProvider>
+    );
+
+    await waitFor(() => expect(rejectApi).toBeDefined());
+    rejectApi!(new Error('boom'));
+
+    await verifyNeverOccurs(() => expect(onError).toHaveBeenCalled());
   });
 });

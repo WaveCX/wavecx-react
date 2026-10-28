@@ -31,6 +31,12 @@ export {
 } from './mock-mode';
 
 export {
+  WaveCxError,
+  type WaveCxErrorType,
+  type ErrorHandler,
+} from './errors';
+
+export {
   type ContentMessage,
   type DismissContentMessage,
   contentMessageSource,

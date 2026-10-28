@@ -6,6 +6,7 @@ import {
 import {clearSessionToken, type InitiateSession, readSessionToken, storeSessionToken} from './sessions';
 import {expectedContentOrigin, isDismissContentMessage, withContentCapabilities} from './content-messages';
 import {retryWithBackoff, defaultRetryConfig, type RetryConfig} from './retry';
+import {type ErrorHandler, isWaveCxError, toWaveCxError} from './errors';
 import {
   type MockModeConfig,
   defaultMockModeConfig,
@@ -21,6 +22,8 @@ export type Event =
 
 export type EventHandler = (event: Event) => void | Promise<void>;
 
+type SessionStartedEvent = Extract<Event, {type: 'session-started'}>;
+
 export type ContentFetchStrategy =
   | 'session-start'
   | 'trigger-point';
@@ -33,6 +36,8 @@ export type CoreConfig = {
   disablePopupContent?: boolean;
   debugMode?: boolean;
   retryConfig?: RetryConfig;
+  /** Per-attempt limit on API requests, in milliseconds. Not used with a custom recordEvent. */
+  requestTimeoutMs?: number;
   mockModeConfig?: MockModeConfig;
 };
 
@@ -75,6 +80,46 @@ const listeners = new Set<Listener>();
 function notify() {
   listeners.forEach(l => l());
 }
+
+// Session state is shared by every provider, so failures go to every provider's onError,
+// whichever provider's handleEvent hit them. Counted so a handler shared by two providers
+// is called once and stays subscribed until both unsubscribe.
+const errorHandlers = new Map<ErrorHandler, number>();
+
+export function subscribeToErrors(handler: ErrorHandler): () => void {
+  errorHandlers.set(handler, (errorHandlers.get(handler) ?? 0) + 1);
+  return () => {
+    const count = errorHandlers.get(handler) ?? 0;
+    if (count <= 1) {
+      errorHandlers.delete(handler);
+    } else {
+      errorHandlers.set(handler, count - 1);
+    }
+  };
+}
+
+function reportError(error: unknown, debugLog: DebugLog) {
+  if (errorHandlers.size === 0) return;
+  const wavecxError = toWaveCxError(error);
+  const logCallbackError = (callbackError: unknown) =>
+    debugLog('onError callback threw', {error: callbackError});
+  for (const handler of [...errorHandlers.keys()]) {
+    try {
+      const result: unknown = handler(wavecxError);
+      if (result && typeof (result as PromiseLike<unknown>).then === 'function') {
+        Promise.resolve(result).catch(logCallbackError);
+      }
+    } catch (callbackError) {
+      logCallbackError(callbackError);
+    }
+  }
+}
+
+// The API rejected the stored token, so refreshing with it again will keep failing
+const isRejectedSessionToken = (error: unknown) =>
+  isWaveCxError(error)
+  && error.type === 'SERVER_ERROR'
+  && (error.httpCode === 401 || error.httpCode === 403);
 
 export function subscribe(listener: Listener): () => void {
   listeners.add(listener);
@@ -289,7 +334,64 @@ export function createHandleEvent(config: CoreConfig): EventHandler {
     ?? composeFireTargetedContentEventViaApi({
       apiBaseUrl: config.apiBaseUrl ?? 'https://api.wavecx.com',
       retryFn: (fn) => retryWithBackoff(fn, retryConfig, debugLog),
+      timeoutMs: config.requestTimeoutMs,
     });
+
+  const startNewSession = async (event: SessionStartedEvent): Promise<TargetedContent[]> => {
+    if (config.initiateSession) {
+      debugLog('Using custom initiateSession function');
+      const sessionResult = await config.initiateSession({
+        organizationCode: config.organizationCode,
+        userId: event.userId,
+        userIdVerification: event.userIdVerification,
+        userAttributes: event.userAttributes,
+      });
+      storeSessionToken(sessionResult.sessionToken, sessionResult.expiresIn ?? 3600);
+      debugLog('Session initiated, fetching content');
+      const result = await recordEvent({
+        organizationCode: config.organizationCode,
+        type: 'session-refresh',
+        sessionToken: sessionResult.sessionToken,
+        userId: event.userId,
+      });
+      return result.content;
+    }
+
+    debugLog('Starting new session via API');
+    const result = await recordEvent({
+      type: 'session-started',
+      organizationCode: config.organizationCode,
+      userId: event.userId,
+      userIdVerification: event.userIdVerification,
+      userAttributes: event.userAttributes,
+    });
+    if (result.sessionToken) {
+      storeSessionToken(result.sessionToken, result.expiresIn ?? 3600);
+      debugLog('Session token stored');
+    }
+    return result.content;
+  };
+
+  const loadSessionContent = async (event: SessionStartedEvent): Promise<TargetedContent[]> => {
+    const sessionToken = readSessionToken();
+    if (sessionToken) {
+      debugLog('Existing session token found, refreshing session');
+      try {
+        const result = await recordEvent({
+          organizationCode: config.organizationCode,
+          type: 'session-refresh',
+          sessionToken,
+          userId: event.userId,
+        });
+        return result.content;
+      } catch (error) {
+        if (!isRejectedSessionToken(error)) throw error;
+        debugLog('Session token rejected, starting a new session', {error});
+        clearSessionToken();
+      }
+    }
+    return startNewSession(event);
+  };
 
   const processQueuedEvents = async (handleEvent: EventHandler) => {
     if (eventQueue.length === 0) return;
@@ -331,81 +433,21 @@ export function createHandleEvent(config: CoreConfig): EventHandler {
         return;
       }
 
-      const sessionToken = readSessionToken();
-      if (sessionToken) {
-        debugLog('Existing session token found, refreshing session');
-        try {
-          isContentLoading = true;
-          notify();
-          const result = await recordEvent({
-            organizationCode: config.organizationCode,
-            type: 'session-refresh',
-            sessionToken,
-            userId: event.userId,
-          });
-          contentCache = result.content;
-          debugLog('Session refreshed successfully', { content: result.content });
-        } catch (error) {
-          debugLog('Session refresh failed', { error });
-        }
-        isContentLoading = false;
-        notify();
-        await processQueuedEvents(handleEvent);
-        return;
+      isContentLoading = true;
+      notify();
+      // Reported once loading has finished, so onError sees settled state and can retry
+      let failure: {error: unknown} | undefined;
+      try {
+        contentCache = await loadSessionContent(event);
+        debugLog('Session started successfully', { content: contentCache });
+      } catch (error) {
+        debugLog('Session start failed', { error });
+        failure = {error};
       }
-
-      if (config.initiateSession) {
-        debugLog('Using custom initiateSession function');
-        try {
-          isContentLoading = true;
-          notify();
-          const sessionResult = await config.initiateSession({
-            organizationCode: config.organizationCode,
-            userId: event.userId,
-            userIdVerification: event.userIdVerification,
-            userAttributes: event.userAttributes,
-          });
-          storeSessionToken(sessionResult.sessionToken, sessionResult.expiresIn ?? 3600);
-          debugLog('Session initiated, fetching content');
-          const result = await recordEvent({
-            organizationCode: config.organizationCode,
-            type: 'session-refresh',
-            sessionToken: sessionResult.sessionToken,
-            userId: event.userId,
-          });
-          contentCache = result.content;
-          debugLog('Content fetched successfully', { content: result.content });
-        } catch (error) {
-          debugLog('Session initiation failed', { error });
-        }
-        isContentLoading = false;
-        notify();
-        await processQueuedEvents(handleEvent);
-      } else {
-        debugLog('Starting new session via API');
-        isContentLoading = true;
-        notify();
-        try {
-          const result = await recordEvent({
-            type: 'session-started',
-            organizationCode: config.organizationCode,
-            userId: event.userId,
-            userIdVerification: event.userIdVerification,
-            userAttributes: event.userAttributes,
-          });
-          if (result.sessionToken) {
-            storeSessionToken(result.sessionToken, result.expiresIn ?? 3600);
-            debugLog('Session token stored');
-          }
-          contentCache = result.content;
-          debugLog('Session started successfully', { content: result.content });
-        } catch (error) {
-          debugLog('Session start failed', { error });
-        }
-        isContentLoading = false;
-        notify();
-        await processQueuedEvents(handleEvent);
-      }
+      isContentLoading = false;
+      notify();
+      if (failure) reportError(failure.error, debugLog);
+      await processQueuedEvents(handleEvent);
     } else if (event.type === 'session-ended') {
       debugLog('Ending session');
       contentCache = [];
@@ -499,6 +541,7 @@ export function resetCoreState(): void {
   eventQueue = [];
   activeTriggerPoint = undefined;
   listeners.clear();
+  errorHandlers.clear();
   cleanupOutsideClickListener?.();
   cleanupOutsideClickListener = undefined;
   cleanupContentMessageListener?.();
